@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+*.log
+.env
+.env.local
+coverage
+
+# Runtime data
+apps/runtime/data
+auto_find_jobs/data
+auto_find_jobs/dist

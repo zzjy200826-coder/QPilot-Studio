@@ -1,0 +1,121 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "QPilot Studio" [level=1] [ref=e8]
+        - paragraph [ref=e9]: 本地优先的 AI 浏览器测试质量代理
+      - generic [ref=e10]:
+        - navigation [ref=e11]:
+          - link "项目" [ref=e12] [cursor=pointer]:
+            - /url: /projects
+          - link "运行" [ref=e13] [cursor=pointer]:
+            - /url: /runs
+          - link "新建运行" [ref=e14] [cursor=pointer]:
+            - /url: /runs/new
+        - generic [ref=e15]:
+          - generic [ref=e16]: 语言
+          - button "EN" [ref=e17] [cursor=pointer]
+          - button "中文" [ref=e18] [cursor=pointer]
+  - main [ref=e19]:
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - paragraph [ref=e23]: 运行编排
+          - heading "创建本地实时测试运行" [level=2] [ref=e24]
+          - paragraph [ref=e25]: 这个流程现在默认启用可见浏览器、挑战页人工接管和可复用会话存储，让你不用再盯着黑盒干等。
+        - generic [ref=e26]:
+          - paragraph [ref=e27]: 推荐配置
+          - generic [ref=e28]:
+            - generic [ref=e29]:
+              - paragraph [ref=e30]: 可见浏览器
+              - paragraph [ref=e31]: 代理执行时，你可以直接看到真实页面。
+            - generic [ref=e32]:
+              - paragraph [ref=e33]: 人工接管
+              - paragraph [ref=e34]: 遇到验证码或登录拦截时暂停，你处理完后再继续。
+            - generic [ref=e35]:
+              - paragraph [ref=e36]: 会话复用
+              - paragraph [ref=e37]: 把 cookie 和登录态保存在命名 profile 下，供后续运行复用。
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - generic [ref=e41]: 项目
+            - combobox [ref=e42]:
+              - option "选择项目" [selected]
+              - option "test"
+              - option "Baidu E2E Project"
+              - option "test2"
+              - option "Example Live Feed"
+              - option "1111"
+              - option "test333"
+          - generic [ref=e43]:
+            - generic [ref=e44]: 模式
+            - combobox [ref=e45]:
+              - option "通用" [selected]
+              - option "登录"
+              - option "后台"
+        - generic [ref=e46]:
+          - generic [ref=e47]: 目标 URL
+          - textbox "https://..." [ref=e48]
+          - generic [ref=e50]: 选择项目后可使用它保存的 URL
+        - generic [ref=e51]:
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - paragraph [ref=e54]: 执行界面
+              - paragraph [ref=e55]: 配置这次运行的可见性、可恢复性和状态复用方式。
+            - generic [ref=e56]: 已启用本地优先模式
+          - generic [ref=e57]:
+            - generic [ref=e59]:
+              - generic [ref=e60]:
+                - paragraph [ref=e61]: 可见浏览器
+                - paragraph [ref=e62]: 打开真实的 Chromium 窗口，便于你直接观察执行进度。
+              - checkbox "可见浏览器 打开真实的 Chromium 窗口，便于你直接观察执行进度。" [checked] [ref=e63]
+            - generic [ref=e65]:
+              - generic [ref=e66]:
+                - paragraph [ref=e67]: 暂停并人工接管
+                - paragraph [ref=e68]: 遇到验证码或登录墙时先停下，等你处理完再继续。
+              - checkbox "暂停并人工接管 遇到验证码或登录墙时先停下，等你处理完再继续。" [checked] [ref=e69]
+            - generic [ref=e71]:
+              - generic [ref=e72]:
+                - paragraph [ref=e73]: 持久化会话状态
+                - paragraph [ref=e74]: 保存 cookie 和登录状态，供下一次运行复用。
+              - checkbox "持久化会话状态 保存 cookie 和登录状态，供下一次运行复用。" [checked] [ref=e75]
+            - generic [ref=e76]:
+              - paragraph [ref=e77]: 运行语言
+              - paragraph [ref=e78]: 这次 Run 可以单独选择规划与报告的语言，不必完全跟随全局界面。
+              - generic [ref=e79]:
+                - button "English" [ref=e80] [cursor=pointer]
+                - button "简体中文" [ref=e81] [cursor=pointer]
+          - generic [ref=e82]:
+            - generic [ref=e83]:
+              - paragraph [ref=e84]: 执行模式
+              - paragraph [ref=e85]: Auto Batch 会连续执行完整 AI 计划；Stepwise Replan 则每次只执行一步、校验，然后基于当前页面重新生成下一步。
+              - generic [ref=e86]:
+                - button "自动整批执行" [ref=e87] [cursor=pointer]
+                - button "单步重规划" [ref=e88] [cursor=pointer]
+            - generic [ref=e90]:
+              - generic [ref=e91]:
+                - paragraph [ref=e92]: 执行前批准草稿
+                - paragraph [ref=e93]: 在单步重规划模式下，每一条草稿动作都会先暂停，让你决定批准、修改后执行，还是直接跳过。
+              - checkbox "执行前批准草稿 在单步重规划模式下，每一条草稿动作都会先暂停，让你决定批准、修改后执行，还是直接跳过。" [disabled] [ref=e94]
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - generic [ref=e97]: 会话 Profile
+              - textbox "default" [ref=e98]
+            - generic [ref=e99]: 多次运行使用同一个 profile 名称，就能延续 cookie、登录态和已解决的登录关卡。
+        - generic [ref=e100]:
+          - generic [ref=e101]:
+            - generic [ref=e102]: 用户名（可选）
+            - textbox [ref=e103]
+          - generic [ref=e104]:
+            - generic [ref=e105]: 密码（可选）
+            - textbox [ref=e106]
+        - paragraph [ref=e107]: 如果留空用户名和密码，就会直接使用该项目里已经保存的凭据。
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - generic [ref=e110]: 目标
+            - textbox [ref=e111]: 验证核心交互以及页面结果是否符合预期。
+          - generic [ref=e112]:
+            - generic [ref=e113]: 最大步数
+            - spinbutton [ref=e114]: "16"
+            - paragraph [ref=e115]: 建议先把步数控制紧一些，便于快速拿到反馈。达到上限后 runtime 会自动停止。
+        - button "开始实时运行" [disabled] [ref=e116]

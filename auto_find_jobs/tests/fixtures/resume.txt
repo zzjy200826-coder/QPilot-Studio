@@ -1,0 +1,1 @@
+Sample resume fixture for local browser upload tests.

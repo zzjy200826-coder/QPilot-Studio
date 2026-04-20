@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="utf-8">
+    <title>Lever Fixture</title>
+  </head>
+  <body>
+    <main id="mount">
+          <form id="lever-step-3">
+            <p>Manual check cleared. Review and submit.</p>
+            <button type="submit">Submit application</button>
+          </form>
+        </main>
+    <script>
+      const mount = document.getElementById("mount");
+      const phaseKey = "lever-fixture-phase";
+      const enteredAtKey = "lever-fixture-entered-at";
+      const resolveStep = () => {
+        const phase = window.localStorage.getItem(phaseKey);
+        const enteredAt = Number(window.localStorage.getItem(enteredAtKey) || "0");
+        if (phase === "verification") {
+          if (Date.now() - enteredAt > 1200) {
+            return 3;
+          }
+          return 2;
+        }
+        if (phase === "ready") {
+          return 3;
+        }
+        return 1;
+      };
+      const render = () => {
+        const step = resolveStep();
+        if (step === 1) {
+          mount.innerHTML = `
+            <form id="lever-step-1">
+              <label>First name <input name="firstName" /></label>
+              <label>Email <input type="email" name="email" /></label>
+              <label>Resume <input type="file" name="resume" /></label>
+              <button type="button" id="continue-lever">Continue</button>
+            </form>
+          `;
+          document.getElementById("continue-lever").addEventListener("click", () => {
+            window.localStorage.setItem(phaseKey, "verification");
+            window.localStorage.setItem(enteredAtKey, String(Date.now()));
+            render();
+          });
+          return;
+        }
+
+        if (step === 2) {
+          mount.innerHTML = "<p>Email verification required before you can continue.</p>";
+          window.setTimeout(render, 250);
+          return;
+        }
+
+        window.localStorage.setItem(phaseKey, "ready");
+        mount.innerHTML = `
+          <form id="lever-step-3">
+            <p>Manual check cleared. Review and submit.</p>
+            <button type="submit">Submit application</button>
+          </form>
+        `;
+        document.getElementById("lever-step-3").addEventListener("submit", (event) => {
+          event.preventDefault();
+          document.body.innerHTML = "<p>Application submitted</p>";
+        });
+      };
+
+      render();
+    </script>
+  
+</body></html>

@@ -1,0 +1,5 @@
+{
+  "verdict": "hold",
+  "profile": "profile-gateway-distributed",
+  "cause": "latency-regression"
+}

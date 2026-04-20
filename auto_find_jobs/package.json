@@ -1,0 +1,45 @@
+{
+  "name": "@qpilot/auto-find-jobs",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n runtime,client \"pnpm dev:server\" \"pnpm dev:client\"",
+    "dev:server": "tsx watch src/server/index.ts",
+    "dev:client": "vite",
+    "build": "pnpm build:client && pnpm build:runtime && tsc -p tsconfig.json --noEmit",
+    "build:client": "vite build",
+    "build:runtime": "tsc -p tsconfig.server.json",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:e2e:feishu-source-auto-apply": "pnpm build:runtime && node --experimental-strip-types e2e/feishu-source-auto-apply.e2e.ts",
+    "test:e2e:greenhouse-auto-apply": "pnpm build:runtime && node --experimental-strip-types e2e/greenhouse-auto-apply.e2e.ts",
+    "test:e2e:greenhouse-direct-live": "pnpm build:runtime && node --experimental-strip-types e2e/greenhouse-direct-live.e2e.ts",
+    "test:e2e:greenhouse": "pnpm build:runtime && node --experimental-strip-types e2e/greenhouse.e2e.ts",
+    "test:e2e:lever-manual": "pnpm build:runtime && node --experimental-strip-types e2e/lever-manual.e2e.ts",
+    "test:e2e": "pnpm run test:e2e:greenhouse && pnpm run test:e2e:greenhouse-auto-apply && pnpm run test:e2e:greenhouse-direct-live && pnpm run test:e2e:lever-manual && pnpm run test:e2e:feishu-source-auto-apply"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@fastify/static": "^8.1.1",
+    "@qpilot/ai-gateway": "workspace:*",
+    "@tanstack/react-query": "^5.68.0",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "playwright": "^1.52.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.5.3",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.4.1",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.3",
+    "vite": "^6.3.2",
+    "vitest": "^3.1.1"
+  }
+}

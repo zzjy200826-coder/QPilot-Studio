@@ -1,0 +1,30 @@
+{
+  "fixture": {
+    "projectId": "proj-mailbox",
+    "baselineRunId": "run-mailbox-rerun-baseline",
+    "candidateRunId": "run-mailbox-rerun-success",
+    "mailboxCaseId": "case-mailbox-recovery"
+  },
+  "verifiedFlow": {
+    "createdProjectName": "E2E Fresh Project",
+    "benchmarkScenario": "Mailbox recovery replay",
+    "diffHeadline": "Outcome changed from failed to passed.",
+    "firstDivergenceStep": 3
+  },
+  "languageReview": {
+    "chineseNavRunsLabel": "运行",
+    "chineseNavNewRunLabel": "新建运行",
+    "chineseLanguageChip": "语言",
+    "mojibakeDetected": false
+  },
+  "screenshots": {
+    "projects": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\console-review\\screenshots\\01-projects-created.png",
+    "runs": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\console-review\\screenshots\\02-runs-benchmark.png",
+    "scenario": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\console-review\\screenshots\\02b-benchmark-scenario-detail.png",
+    "scenarioInlineDiff": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\console-review\\screenshots\\02c-benchmark-inline-diff.png",
+    "report": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\console-review\\screenshots\\03-report-diff.png",
+    "detail": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\console-review\\screenshots\\04-run-detail-compare.png",
+    "chinese": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\console-review\\screenshots\\05-run-detail-zh.png",
+    "chineseReport": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\console-review\\screenshots\\06-report-diff-zh.png"
+  }
+}

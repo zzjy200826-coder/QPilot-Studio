@@ -1,0 +1,182 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "QPilot Studio" [level=1] [ref=e8]
+        - paragraph [ref=e9]: 本地优先的 AI 浏览器测试质量代理
+      - generic [ref=e10]:
+        - navigation [ref=e11]:
+          - link "项目" [ref=e12] [cursor=pointer]:
+            - /url: /projects
+          - link "运行" [ref=e13] [cursor=pointer]:
+            - /url: /runs
+          - link "新建运行" [ref=e14] [cursor=pointer]:
+            - /url: /runs/new
+        - generic [ref=e15]:
+          - generic [ref=e16]: 语言
+          - button "EN" [ref=e17] [cursor=pointer]
+          - button "中文" [ref=e18] [cursor=pointer]
+  - main [ref=e19]:
+    - generic [ref=e20]:
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - paragraph [ref=e23]: 运行控制台
+          - heading "瀹炴椂杩愯璇︽儏" [level=2] [ref=e24]
+          - paragraph [ref=e25]: 目标页面
+        - generic [ref=e26]:
+          - generic [ref=e27]: idle
+          - generic [ref=e28]: auto_batch
+          - generic [ref=e29]: connecting
+          - link "打开报告" [ref=e30] [cursor=pointer]:
+            - /url: /reports/YYdKu2fjN18yhvlPiGFMA
+      - generic [ref=e31]:
+        - generic [ref=e32]:
+          - generic [ref=e33]:
+            - generic [ref=e34]:
+              - generic [ref=e35]:
+                - paragraph [ref=e36]: 实时视图
+                - heading "目标页面" [level=3] [ref=e37]
+                - paragraph
+              - button "自动跟随中" [ref=e38] [cursor=pointer]
+            - generic [ref=e39]:
+              - generic [ref=e40]:
+                - generic [ref=e41]:
+                  - paragraph [ref=e42]: 步骤
+                  - paragraph [ref=e43]: "0"
+                - generic [ref=e44]:
+                  - paragraph [ref=e45]: 阶段
+                  - paragraph [ref=e46]: idle
+                - generic [ref=e47]:
+                  - paragraph [ref=e48]: 信号
+                  - paragraph [ref=e49]: 暂无信号
+              - generic [ref=e56]:
+                - paragraph [ref=e57]: 暂时还没有浏览器证据。
+                - paragraph [ref=e58]: 第一帧记录画面会自动出现在这里。
+                - paragraph [ref=e59]: 已结束的运行会在这里回放它保存下来的证据。
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - paragraph [ref=e62]: UI 验证
+              - heading "waiting" [level=3] [ref=e63]
+              - paragraph [ref=e64]: 还没有 UI 验证说明。
+            - generic [ref=e65]:
+              - generic [ref=e66]:
+                - generic [ref=e67]:
+                  - paragraph [ref=e68]: API 验证
+                  - heading "步骤级请求" [level=3] [ref=e69]
+                - generic [ref=e70]: pending
+              - paragraph [ref=e71]: 步骤沉淀后会显示流量摘要。
+              - generic [ref=e72]:
+                - generic [ref=e73]:
+                  - paragraph [ref=e74]: 命中
+                  - paragraph [ref=e75]: "0"
+                - generic [ref=e76]:
+                  - paragraph [ref=e77]: 失败
+                  - paragraph [ref=e78]: "0"
+          - generic [ref=e79]:
+            - generic [ref=e80]:
+              - heading "动作时间线" [level=3] [ref=e81]
+              - generic [ref=e82]: "0"
+            - generic [ref=e83]:
+              - button "all" [ref=e84] [cursor=pointer]
+              - button "failed" [ref=e85] [cursor=pointer]
+              - button "blocked" [ref=e86] [cursor=pointer]
+            - textbox "搜索动作或选择器..." [ref=e87]
+        - complementary [ref=e88]:
+          - generic [ref=e89]:
+            - generic [ref=e90]:
+              - generic [ref=e91]:
+                - paragraph [ref=e92]: 下一步草案
+                - heading "批准、编辑、跳过或切换模式" [level=3] [ref=e93]
+              - generic [ref=e94]:
+                - button "auto_batch" [ref=e95] [cursor=pointer]
+                - button "stepwise_replan" [ref=e96] [cursor=pointer]
+            - paragraph [ref=e97]: 等待下一次 Planner 决策。
+            - generic [ref=e98]:
+              - textbox "閫夋嫨鍣ㄦ垨 URL" [disabled] [ref=e99]
+              - textbox "备注" [disabled] [ref=e100]
+            - generic [ref=e101]:
+              - button "批准" [disabled] [ref=e102]
+              - button "编辑并执行" [disabled] [ref=e103]
+              - button "跳过" [disabled] [ref=e104]
+              - button "重试" [disabled] [ref=e105]
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - heading "步骤流量" [level=3] [ref=e108]
+              - generic [ref=e109]: "0"
+            - generic [ref=e111]: 正在加载流量...
+          - generic [ref=e112]:
+            - generic [ref=e113]:
+              - heading "模板修复候选" [level=3] [ref=e114]
+              - generic [ref=e115]: "0"
+            - paragraph [ref=e116]: 模板回放步骤一旦偏航，这里会自动生成一份候选修复 target 和校验建议。
+            - generic [ref=e117]:
+              - button "生成修复草案" [disabled] [ref=e118]
+              - button "应用到模板" [disabled] [ref=e119]
+              - button "应用并回放验证" [disabled] [ref=e120]
+            - generic [ref=e122]: 还没有修复候选，一旦模板步骤偏航，这里就会出现候选修复建议。
+          - generic [ref=e123]:
+            - generic [ref=e124]:
+              - heading "Case 资产" [level=3] [ref=e125]
+              - button "提取 Case" [disabled] [ref=e126]
+            - generic [ref=e128]: 通过后的运行会在这里沉淀成可复用 Case。
+      - generic [ref=e129]:
+        - generic [ref=e130]:
+          - generic [ref=e131]:
+            - paragraph [ref=e132]: 开发者证据
+            - heading "控制台、网络、DOM 和规划轨迹" [level=3] [ref=e133]
+            - paragraph [ref=e134]: 用这个面板直接查看代理为什么成功、暂停或失败。
+          - generic [ref=e135]:
+            - generic [ref=e136]: 控制台 7
+            - generic [ref=e137]: 网络 320
+            - generic [ref=e138]: 规划 3
+        - generic [ref=e139]:
+          - button "控制台" [ref=e140] [cursor=pointer]
+          - button "网络" [ref=e141] [cursor=pointer]
+          - button "DOM" [ref=e142] [cursor=pointer]
+          - button "规划器" [ref=e143] [cursor=pointer]
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - generic [ref=e147]:
+                - generic [ref=e148]: log
+                - generic [ref=e149]: 2026年4月16日 01:08
+              - generic [ref=e150]: https://pss.bdstatic.com/r/www/cache/static/protocol/https/global/js/all_async_search_c5fd4d3.js:1853:479
+            - paragraph [ref=e151]: onbeforeunload save spyCache
+          - generic [ref=e152]:
+            - generic [ref=e153]:
+              - generic [ref=e154]:
+                - generic [ref=e155]: error
+                - generic [ref=e156]: 2026年4月16日 01:07
+              - generic [ref=e157]: about:blank:1:1
+            - paragraph [ref=e158]: "Failed to load resource: net::ERR_UNKNOWN_URL_SCHEME"
+          - generic [ref=e159]:
+            - generic [ref=e161]:
+              - generic [ref=e162]: pageerror
+              - generic [ref=e163]: 2026年4月16日 01:07
+            - paragraph [ref=e164]: "[MODULE_TIMEOUT]Hang(none) Miss(aladdin-san/app/game-page-profession/result_a3b83a6)"
+          - generic [ref=e165]:
+            - generic [ref=e167]:
+              - generic [ref=e168]: pageerror
+              - generic [ref=e169]: 2026年4月16日 01:07
+            - paragraph [ref=e170]: "[MODULE_TIMEOUT]Hang(aladdin-san/app/game-page-profession/result_a3b83a6) Miss(none)"
+          - generic [ref=e171]:
+            - generic [ref=e172]:
+              - generic [ref=e173]:
+                - generic [ref=e174]: error
+                - generic [ref=e175]: 2026年4月16日 01:07
+              - generic [ref=e176]: about:blank:1:1
+            - paragraph [ref=e177]: "Failed to load resource: net::ERR_UNKNOWN_URL_SCHEME"
+          - generic [ref=e178]:
+            - generic [ref=e179]:
+              - generic [ref=e180]:
+                - generic [ref=e181]: log
+                - generic [ref=e182]: 2026年4月16日 01:06
+              - generic [ref=e183]: https://pss.bdstatic.com/r/www/cache/static/protocol/https/global/js/all_async_search_c5fd4d3.js:2037:267
+            - paragraph [ref=e184]: "%c百度2026校园招聘简历投递：https://talent.baidu.com/jobs/list color:red"
+          - generic [ref=e185]:
+            - generic [ref=e186]:
+              - generic [ref=e187]:
+                - generic [ref=e188]: log
+                - generic [ref=e189]: 2026年4月16日 01:06
+              - generic [ref=e190]: https://pss.bdstatic.com/r/www/cache/static/protocol/https/global/js/all_async_search_c5fd4d3.js:2037:137
+            - paragraph [ref=e191]: 无畏是青春的态度，热AI是时代的脉搏。 各位新同学正以无畏的姿态奔赴通用人工智能的星辰大海！ 作为引领AI时代浪潮的主力军，广阔舞台，待你大展身手。 乘风破浪，勇往直前，未来百度将与你一起，创造无限可能！

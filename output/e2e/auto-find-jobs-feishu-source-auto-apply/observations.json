@@ -1,0 +1,10 @@
+{
+  "runtimeBaseUrl": "http://127.0.0.1:59513",
+  "webBaseUrl": "http://127.0.0.1:59514",
+  "fixtureBaseUrl": "http://127.0.0.1:59515",
+  "screenshots": {
+    "source": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-feishu-source-auto-apply\\screenshots\\01-feishu-source.png",
+    "jobs": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-feishu-source-auto-apply\\screenshots\\02-feishu-jobs-auto-apply.png",
+    "submitted": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-feishu-source-auto-apply\\screenshots\\03-feishu-auto-apply-submitted.png"
+  }
+}

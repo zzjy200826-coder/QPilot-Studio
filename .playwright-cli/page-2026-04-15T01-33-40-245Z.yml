@@ -1,0 +1,57 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "QPilot Studio" [level=1] [ref=e7]
+        - paragraph [ref=e8]: Local-first AI quality agent for browser testing
+      - navigation [ref=e9]:
+        - link "Projects" [ref=e10] [cursor=pointer]:
+          - /url: /projects
+        - link "Runs" [ref=e11] [cursor=pointer]:
+          - /url: /runs
+        - link "New Run" [ref=e12] [cursor=pointer]:
+          - /url: /runs/new
+  - main [ref=e13]:
+    - generic [ref=e14]:
+      - heading "Create New Run" [level=2] [ref=e15]
+      - paragraph [ref=e16]: Runtime will use Playwright + LLM to plan actions, execute, verify, and generate reports.
+      - generic [ref=e17]:
+        - generic [ref=e18]:
+          - generic [ref=e19]:
+            - generic [ref=e20]: Project
+            - combobox [ref=e21]:
+              - option "Select project"
+              - option "test"
+              - option "Baidu E2E Project"
+              - option "test2"
+              - option "Example Live Feed"
+              - option "1111" [selected]
+          - generic [ref=e22]:
+            - generic [ref=e23]: Mode
+            - combobox [ref=e24]:
+              - option "general" [selected]
+              - option "login"
+              - option "admin"
+        - generic [ref=e25]:
+          - generic [ref=e26]: Target URL
+          - textbox "https://..." [ref=e27]: https://www.baidu.com/
+          - generic [ref=e28]:
+            - generic [ref=e29]: "Saved project URL: https://www.baidu.com/"
+            - button "Use saved URL" [ref=e47] [cursor=pointer]
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - generic [ref=e32]: Username (optional)
+            - textbox [ref=e33]
+          - generic [ref=e34]:
+            - generic [ref=e35]: Password (optional)
+            - textbox [ref=e36]
+        - paragraph [ref=e37]: Leave username and password empty to use the credentials already saved on the selected project.
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - generic [ref=e40]: Goal
+            - textbox [ref=e41]: Validate core interactions and expected page outcomes.
+          - generic [ref=e42]:
+            - generic [ref=e43]: Max Steps
+            - spinbutton [ref=e44]: "16"
+            - paragraph [ref=e45]: Runtime now enforces this as an actual step cap.
+        - button "Start Run" [ref=e46] [cursor=pointer]

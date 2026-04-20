@@ -1,0 +1,465 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:wght@600&display=swap");
+
+:root {
+  color-scheme: light;
+  font-family:
+    "IBM Plex Sans",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    "Noto Sans SC",
+    "Segoe UI",
+    sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(41, 121, 255, 0.14), transparent 22rem),
+    radial-gradient(circle at bottom right, rgba(255, 160, 0, 0.14), transparent 28rem),
+    #f3f5f8;
+  color: #0f1720;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.92)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(15, 23, 32, 0.04),
+      rgba(15, 23, 32, 0.04) 1px,
+      transparent 1px,
+      transparent 42px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(15, 23, 32, 0.03),
+      rgba(15, 23, 32, 0.03) 1px,
+      transparent 1px,
+      transparent 42px
+    ),
+    #f3f5f8;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+input,
+select,
+textarea {
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 32, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  color: #0f1720;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 0.85rem 1rem;
+}
+
+textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.workspace-root {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: minmax(240px, 290px) 1fr;
+}
+
+.workspace-sidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 2rem 1.25rem;
+  border-right: 1px solid rgba(15, 23, 32, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 251, 255, 0.88)),
+    rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px);
+}
+
+.workspace-brand h1,
+.workspace-header h2,
+.section-headline h3,
+.subsection-head h4 {
+  margin: 0;
+  font-family:
+    "Source Serif 4",
+    "Songti SC",
+    "STSong",
+    "Noto Serif SC",
+    Georgia,
+    serif;
+  letter-spacing: -0.02em;
+}
+
+.workspace-brand h1 {
+  margin-top: 0.5rem;
+  font-size: clamp(2rem, 3vw, 2.8rem);
+  line-height: 0.95;
+}
+
+.workspace-kicker {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #516072;
+}
+
+.workspace-copy,
+.workspace-sidebar-foot,
+.list-card-copy,
+.job-meta {
+  margin: 0;
+  color: #516072;
+  line-height: 1.55;
+}
+
+.workspace-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.workspace-nav-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.95rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 18px;
+  color: #354254;
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.workspace-nav-link:hover,
+.workspace-nav-link-active {
+  border-color: rgba(15, 23, 32, 0.12);
+  background: rgba(255, 255, 255, 0.88);
+  transform: translateX(4px);
+}
+
+.workspace-sidebar-foot {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(15, 23, 32, 0.08);
+  font-size: 0.92rem;
+}
+
+.workspace-main {
+  padding: 1.2rem;
+}
+
+.workspace-header,
+.workspace-panel,
+.subsection,
+.job-card,
+.list-card,
+.event-card,
+.queue-card,
+.workspace-empty {
+  border: 1px solid rgba(15, 23, 32, 0.08);
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 18px 46px rgba(15, 23, 32, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+.workspace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 28px;
+}
+
+.workspace-header h2 {
+  margin-top: 0.35rem;
+  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
+}
+
+.workspace-header-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 160, 0, 0.14);
+  color: #6f4b00;
+  font-size: 0.85rem;
+}
+
+.workspace-panel {
+  margin-top: 1rem;
+  padding: 1.25rem;
+  border-radius: 32px;
+}
+
+.workspace-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.queue-chip-stack {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: end;
+}
+
+.workspace-two-column {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-two-column-wide {
+  grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
+}
+
+.section-headline,
+.subsection-head,
+.list-card-row,
+.job-card-row,
+.queue-card-row,
+.button-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.subsection,
+.job-card,
+.list-card,
+.event-card,
+.queue-card,
+.workspace-empty {
+  padding: 1rem;
+  border-radius: 24px;
+}
+
+.subsection {
+  display: grid;
+  gap: 1rem;
+}
+
+.form-grid,
+.toolbar {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-field,
+.toolbar-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.form-field span,
+.toolbar-field span {
+  color: #354254;
+  font-size: 0.92rem;
+}
+
+.form-field-wide {
+  grid-column: 1 / -1;
+}
+
+.button {
+  width: fit-content;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(15, 23, 32, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.button-primary {
+  background: linear-gradient(135deg, #0f1720, #2f4157);
+  color: white;
+}
+
+.button-danger {
+  color: #8b1d1d;
+  background: rgba(255, 236, 236, 0.92);
+}
+
+.button-column {
+  display: grid;
+  gap: 0.6rem;
+  align-content: start;
+}
+
+.job-card {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+
+.job-title,
+.list-card-title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.job-description {
+  margin: 0.75rem 0;
+  color: #243141;
+  line-height: 1.6;
+}
+
+.job-link {
+  color: #005fcc;
+  text-decoration: none;
+}
+
+.job-link:hover {
+  text-decoration: underline;
+}
+
+.row-editor {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.row-editor-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.row-editor-wide {
+  grid-column: 1 / -1;
+}
+
+.queue-card {
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.queue-card-active {
+  border-color: rgba(0, 95, 204, 0.32);
+  transform: translateY(-2px);
+}
+
+.review-shot {
+  width: 100%;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 23, 32, 0.12);
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 32, 0.08);
+  color: #354254;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.status-new {
+  background: rgba(41, 121, 255, 0.14);
+  color: #0d4ea6;
+}
+
+.status-seen,
+.status-ready {
+  background: rgba(15, 23, 32, 0.08);
+}
+
+.status-applied {
+  background: rgba(37, 160, 108, 0.14);
+  color: #0f6f49;
+}
+
+.status-skipped {
+  background: rgba(112, 128, 144, 0.16);
+  color: #475569;
+}
+
+.status-review,
+.status-submit {
+  background: rgba(255, 160, 0, 0.16);
+  color: #7a5100;
+}
+
+.status-live {
+  background: rgba(0, 95, 204, 0.14);
+  color: #005fcc;
+}
+
+.status-failed {
+  background: rgba(220, 38, 38, 0.14);
+  color: #9d2020;
+}
+
+.list-card-copy-danger {
+  color: #9d2020;
+}
+
+.workspace-empty {
+  display: grid;
+  place-items: center;
+  min-height: 12rem;
+  color: #516072;
+}
+
+.inline-alert {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 32, 0.08);
+}
+
+.inline-alert-warning {
+  background: rgba(255, 244, 214, 0.78);
+  border-color: rgba(184, 134, 11, 0.18);
+}
+
+@media (max-width: 1080px) {
+  .workspace-root {
+    grid-template-columns: 1fr;
+  }
+
+  .workspace-sidebar {
+    border-right: none;
+    border-bottom: 1px solid rgba(15, 23, 32, 0.08);
+  }
+
+  .workspace-two-column,
+  .workspace-two-column-wide,
+  .job-card,
+  .form-grid,
+  .toolbar,
+  .row-editor-grid {
+    grid-template-columns: 1fr;
+  }
+}

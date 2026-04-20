@@ -1,0 +1,18 @@
+{
+  "cookies": [],
+  "origins": [
+    {
+      "origin": "http://127.0.0.1:57267",
+      "localStorage": [
+        {
+          "name": "lever-fixture-entered-at",
+          "value": "1776583666108"
+        },
+        {
+          "name": "lever-fixture-phase",
+          "value": "ready"
+        }
+      ]
+    }
+  ]
+}

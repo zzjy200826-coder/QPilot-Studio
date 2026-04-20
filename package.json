@@ -1,0 +1,23 @@
+{
+  "name": "qpilot-studio",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.8.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:web": "pnpm --filter @qpilot/web dev",
+    "dev:runtime": "pnpm --filter @qpilot/runtime dev",
+    "dev:jobs": "pnpm --filter @qpilot/auto-find-jobs dev",
+    "dev:desktop": "concurrently -k -n runtime,web,desktop \"pnpm dev:runtime\" \"pnpm dev:web\" \"wait-on http://localhost:5173 http://localhost:8787/health && pnpm --filter @qpilot/desktop dev\"",
+    "dev": "pnpm --parallel --filter @qpilot/runtime --filter @qpilot/web dev",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.14",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1",
+    "wait-on": "^8.0.3"
+  }
+}

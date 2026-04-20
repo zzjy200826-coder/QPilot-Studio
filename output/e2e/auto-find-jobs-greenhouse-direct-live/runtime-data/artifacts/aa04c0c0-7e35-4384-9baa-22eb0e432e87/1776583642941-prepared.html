@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head>
+    <meta charset="utf-8">
+    <title>Greenhouse Fixture</title>
+  </head>
+  <body>
+    <main id="mount">
+            <form id="greenhouse-step-1">
+              <label>First name <input name="first_name" data-job-helper-field="job-helper-text-first-name-field-first-name-field" style=""></label>
+              <label>Email <input type="email" name="email" data-job-helper-field="job-helper-email-email-field-email-field" style=""></label>
+              <label>Resume / CV <input type="file" name="resume" data-job-helper-field="job-helper-file-resume-field-resume-cv-field" style=""></label>
+              <label>Desired compensation <input name="salary" data-job-helper-field="job-helper-text-salary-field-desired-compensation-field" style=""></label>
+              <button type="button" id="continue-greenhouse">Continue</button>
+            </form>
+          </main>
+    <script>
+      const mount = document.getElementById("mount");
+      let step = 1;
+      const render = () => {
+        if (step === 1) {
+          mount.innerHTML = `
+            <form id="greenhouse-step-1">
+              <label>First name <input name="first_name" /></label>
+              <label>Email <input type="email" name="email" /></label>
+              <label>Resume / CV <input type="file" name="resume" /></label>
+              <label>Desired compensation <input name="salary" /></label>
+              <button type="button" id="continue-greenhouse">Continue</button>
+            </form>
+          `;
+          document.getElementById("continue-greenhouse").addEventListener("click", () => {
+            step = 2;
+            render();
+          });
+          return;
+        }
+
+        mount.innerHTML = `
+          <form id="greenhouse-step-2">
+            <label>LinkedIn profile <input name="linkedin" /></label>
+            <button type="submit">Submit application</button>
+          </form>
+        `;
+        document.getElementById("greenhouse-step-2").addEventListener("submit", (event) => {
+          event.preventDefault();
+          document.body.innerHTML = "<p>Thank you for applying</p>";
+        });
+      };
+
+      render();
+    </script>
+  
+</body></html>

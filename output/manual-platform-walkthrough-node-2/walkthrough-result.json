@@ -1,0 +1,110 @@
+{
+  "project": {
+    "id": "ry-2U81kq8dlcAZu98mLl",
+    "name": "Platform Walkthrough",
+    "baseUrl": "https://www.baidu.com",
+    "createdAt": "2026-04-18T02:56:41.809Z",
+    "updatedAt": "2026-04-18T02:56:41.809Z"
+  },
+  "environment": {
+    "id": "eps0XmW0TPT177In_fDx7",
+    "projectId": "ry-2U81kq8dlcAZu98mLl",
+    "name": "Baidu Staging",
+    "baseUrl": "https://www.baidu.com",
+    "authType": "none",
+    "owner": "Platform QA",
+    "riskLevel": "medium",
+    "createdAt": "2026-04-18T02:56:41.832Z",
+    "updatedAt": "2026-04-18T02:56:41.832Z"
+  },
+  "pool": {
+    "id": "CsQioOCZxfpJLHXNdz8Pn",
+    "name": "Shanghai Injectors",
+    "region": "cn-east",
+    "capacity": 2,
+    "concurrencyLimit": 50,
+    "tags": [],
+    "createdAt": "2026-04-18T02:56:41.866Z",
+    "updatedAt": "2026-04-18T02:56:41.866Z"
+  },
+  "policy": {
+    "id": "UVZCVDwx3vEbUWYDG72XV",
+    "projectId": "ry-2U81kq8dlcAZu98mLl",
+    "name": "Baidu smoke gate",
+    "requiredFunctionalFlows": [
+      "search home"
+    ],
+    "minBenchmarkCoveragePct": 0,
+    "minBenchmarkPassRate": 0,
+    "requiredLoadProfileIds": [],
+    "minimumLoadVerdict": "watch",
+    "allowWaiver": true,
+    "approverRoles": [
+      "release-manager"
+    ],
+    "createdAt": "2026-04-18T02:56:41.921Z",
+    "updatedAt": "2026-04-18T02:56:41.921Z"
+  },
+  "profile": {
+    "id": "HBwdgFHIaOut5sQT9zPYG",
+    "projectId": "ry-2U81kq8dlcAZu98mLl",
+    "name": "Baidu k6 health",
+    "scenarioLabel": "Homepage steady smoke",
+    "targetBaseUrl": "https://www.baidu.com",
+    "environmentTargetId": "eps0XmW0TPT177In_fDx7",
+    "engine": "k6_http",
+    "pattern": "steady",
+    "requestPath": "/",
+    "httpMethod": "GET",
+    "headersJson": "{\n  \"Accept\": \"text/html\"\n}",
+    "executionMode": "distributed",
+    "workerCount": 2,
+    "injectorPoolId": "CsQioOCZxfpJLHXNdz8Pn",
+    "arrivalModel": "closed",
+    "gatePolicyId": "UVZCVDwx3vEbUWYDG72XV",
+    "tagsJson": "[\"smoke\",\"search\"]",
+    "virtualUsers": 10,
+    "durationSec": 10,
+    "rampUpSec": 1,
+    "targetRps": 5,
+    "thresholds": {
+      "maxP95Ms": 2000,
+      "maxErrorRatePct": 5,
+      "minThroughputRps": 0
+    },
+    "createdAt": "2026-04-18T02:56:41.940Z",
+    "updatedAt": "2026-04-18T02:56:41.940Z"
+  },
+  "run": {
+    "id": "Zta0CZmSJoSU3xNVOKbAo",
+    "projectId": "ry-2U81kq8dlcAZu98mLl",
+    "profileId": "HBwdgFHIaOut5sQT9zPYG",
+    "profileName": "Baidu k6 health",
+    "scenarioLabel": "Homepage steady smoke",
+    "targetBaseUrl": "https://www.baidu.com",
+    "environmentId": "eps0XmW0TPT177In_fDx7",
+    "engine": "k6_http",
+    "pattern": "steady",
+    "environmentLabel": "Baidu Staging",
+    "status": "passed",
+    "verdict": "ship",
+    "source": "k6",
+    "metrics": {
+      "p50Ms": 69.18,
+      "p95Ms": 225.58,
+      "p99Ms": 364.65,
+      "errorRatePct": 0,
+      "throughputRps": 95.64,
+      "peakVus": 10,
+      "requestCount": 962,
+      "totalErrors": 0
+    },
+    "notes": "manual walkthrough",
+    "engineVersion": "k6.exe v1.7.1 (commit/9f82e6f1fc, go1.26.1, windows/amd64)",
+    "executorLabel": "Local distributed orchestrator (2 workers)",
+    "rawSummaryPath": "C:\\Users\\zjy\\AppData\\Local\\Temp\\qpilot-k6-C0UEtW\\summary.json",
+    "startedAt": "2026-04-18T02:56:42.010Z",
+    "endedAt": "2026-04-18T02:56:52.010Z",
+    "createdAt": "2026-04-18T02:56:41.959Z"
+  }
+}

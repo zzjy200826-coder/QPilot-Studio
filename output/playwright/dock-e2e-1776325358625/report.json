@@ -1,0 +1,50 @@
+{
+  "outDir": "C:\\Users\\zjy\\QPilot-Studio\\output\\playwright\\dock-e2e-1776325358625",
+  "runId": "kY147O7F3LMBAJMIbuYUa",
+  "pauseResult": {
+    "ok": true,
+    "status": 200,
+    "text": "{\"ok\":true,\"runId\":\"kY147O7F3LMBAJMIbuYUa\",\"command\":\"pause\"}"
+  },
+  "activeState": {
+    "activeRun": {
+      "maxSteps": 10,
+      "headed": false,
+      "language": "zh-CN",
+      "executionMode": "auto_batch",
+      "confirmDraft": false,
+      "manualTakeover": false,
+      "saveSession": false,
+      "id": "kY147O7F3LMBAJMIbuYUa",
+      "projectId": "xsL4ag6A7krQiZPQUE5R5",
+      "status": "running",
+      "mode": "general",
+      "targetUrl": "https://example.com",
+      "goal": "Open the example homepage, inspect the hero text, then continue exploring the available link for a few more steps.",
+      "model": "deepseek-chat",
+      "startedAt": "2026-04-16T07:42:38.686Z",
+      "createdAt": "2026-04-16T07:42:38.662Z"
+    },
+    "control": {
+      "phase": "booting",
+      "message": "浏览器会话已启动，正在打开目标页面。",
+      "paused": false,
+      "manualRequired": false,
+      "executionMode": "auto_batch",
+      "draft": null,
+      "lastEventAt": "2026-04-16T07:42:38.698Z"
+    }
+  },
+  "dockDetectedOnProjects": false,
+  "dockDetectedOnDetail": false,
+  "screenshots": {
+    "projects": "C:\\Users\\zjy\\QPilot-Studio\\output\\playwright\\dock-e2e-1776325358625\\projects-dock.png",
+    "runDetail": "C:\\Users\\zjy\\QPilot-Studio\\output\\playwright\\dock-e2e-1776325358625\\run-detail-dock.png"
+  },
+  "abortResult": {
+    "ok": true,
+    "status": 200,
+    "text": "{\"ok\":true,\"runId\":\"kY147O7F3LMBAJMIbuYUa\",\"command\":\"abort\"}"
+  },
+  "finalRunStatus": "running"
+}

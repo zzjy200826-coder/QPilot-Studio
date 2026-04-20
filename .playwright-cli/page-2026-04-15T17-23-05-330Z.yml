@@ -1,0 +1,275 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "QPilot Studio" [level=1] [ref=e8]
+        - paragraph [ref=e9]: 本地优先的 AI 浏览器测试质量代理
+      - generic [ref=e10]:
+        - navigation [ref=e11]:
+          - link "项目" [ref=e12] [cursor=pointer]:
+            - /url: /projects
+          - link "运行" [ref=e13] [cursor=pointer]:
+            - /url: /runs
+          - link "新建运行" [ref=e14] [cursor=pointer]:
+            - /url: /runs/new
+        - generic [ref=e15]:
+          - generic [ref=e16]: 语言
+          - button "EN" [ref=e17] [cursor=pointer]
+          - button "中文" [ref=e18] [cursor=pointer]
+  - main [ref=e19]:
+    - generic [ref=e467]:
+      - generic [ref=e468]:
+        - generic [ref=e469]:
+          - paragraph [ref=e470]: 运行控制台
+          - heading "搜索洛克王国，点击进去，找到登录并且用qq登录，账号1111，密码11111" [level=2] [ref=e471]
+          - paragraph [ref=e472]: (no title)
+        - generic [ref=e473]:
+          - generic [ref=e474]: failed
+          - generic [ref=e475]: auto_batch
+          - generic [ref=e476]: connecting
+          - link "打开报告" [ref=e477] [cursor=pointer]:
+            - /url: /reports/YYdKu2fjN18yhvlPiGFMA
+      - generic [ref=e478]: "page.screenshot: Target page, context or browser has been closed"
+      - generic [ref=e479]:
+        - generic [ref=e480]:
+          - generic [ref=e481]:
+            - generic [ref=e482]:
+              - generic [ref=e483]:
+                - paragraph [ref=e484]: 实时视图
+                - heading "(no title)" [level=3] [ref=e485]
+                - paragraph [ref=e486]: https://www.baidu.com/s?rsv_idx=1&wd=%E6%B4%9B%E5%85%8B%E7%8E%8B%E5%9B%BD%E6%89%8B%E6%B8%B8%E5%AE%98%E7%BD%91%E5%85%A5%E5%8F%A3&fenlei=256&usm=1&ie=utf-8&rsv_pq=e227838b0000b09d&oq=%E3%80%8A%E6%B4%9B%E5%85%8B%E7%8E%8B%E5%9B%BD%3A%E4%B8%96%E7%95%8C%E3%80%8B%E5%AE%98%E7%BD%91&rsv_t=acc3RUQCtu%2FSTxgtcvGMsS9CxRDQu9uO1rcvvp8JF8FeDnG4QAoHCrpAozI&rfqid=e227838b0000b09d&rsv_dl=0_prs_28616_1&rq=%E3%80%8A%E6%B4%9B%E5%85%8B%E7%8E%8B%E5%9B%BD%3A%E4%B8%96%E7%95%8C%E3%80%8B%E5%AE%98%E7%BD%91&rsf=101631101
+              - button "自动跟随中" [ref=e487] [cursor=pointer]
+            - generic [ref=e488]:
+              - generic [ref=e489]:
+                - generic [ref=e490]:
+                  - paragraph [ref=e491]: 步骤
+                  - paragraph [ref=e492]: "7"
+                - generic [ref=e493]:
+                  - paragraph [ref=e494]: 阶段
+                  - paragraph [ref=e495]: finished
+                - generic [ref=e496]:
+                  - paragraph [ref=e497]: 信号
+                  - paragraph [ref=e498]: 15分钟前
+              - generic [ref=e499]:
+                - img "step-7" [ref=e500]
+                - generic:
+                  - generic:
+                    - generic: 已保存证据
+                    - generic: "步骤 #7"
+                    - generic: finished
+                  - generic: Playback mode
+                - generic:
+                  - paragraph: (no title)
+                  - paragraph: https://www.baidu.com/s?rsv_idx=1&wd=%E6%B4%9B%E5%85%8B%E7%8E%8B%E5%9B%BD%E6%89%8B%E6%B8%B8%E5%AE%98%E7%BD%91%E5%85%A5%E5%8F%A3&fenlei=256&usm=1&ie=utf-8&rsv_pq=e227838b0000b09d&oq=%E3%80%8A%E6%B4%9B%E5%85%8B%E7%8E%8B%E5%9B%BD%3A%E4%B8%96%E7%95%8C%E3%80%8B%E5%AE%98%E7%BD%91&rsv_t=acc3RUQCtu%2FSTxgtcvGMsS9CxRDQu9uO1rcvvp8JF8FeDnG4QAoHCrpAozI&rfqid=e227838b0000b09d&rsv_dl=0_prs_28616_1&rq=%E3%80%8A%E6%B4%9B%E5%85%8B%E7%8E%8B%E5%9B%BD%3A%E4%B8%96%E7%95%8C%E3%80%8B%E5%AE%98%E7%BD%91&rsf=101631101
+          - generic [ref=e501]:
+            - generic [ref=e502]:
+              - paragraph [ref=e503]: UI 验证
+              - heading "wait 路 等待页面跳转到目标网站" [level=3] [ref=e504]
+              - paragraph [ref=e505]: 还没有 UI 验证说明。
+              - generic [ref=e506]:
+                - generic [ref=e507]: no_effect
+                - generic [ref=e508]: timer
+              - paragraph [ref=e509]: 动作执行完了，但业务状态没有变化。建议收紧预期校验或目标提示。
+              - generic [ref=e510]:
+                - generic [ref=e511]: 洛克王国
+                - generic [ref=e512]: 登录
+                - generic [ref=e513]: QQ登录
+                - generic [ref=e514]: 账号
+                - generic [ref=e515]: 密码
+            - generic [ref=e516]:
+              - generic [ref=e517]:
+                - generic [ref=e518]:
+                  - paragraph [ref=e519]: API 验证
+                  - heading "步骤级请求" [level=3] [ref=e520]
+                - generic [ref=e521]: neutral
+              - paragraph [ref=e522]: No step-linked XHR, fetch, or document traffic was captured.
+              - generic [ref=e523]:
+                - generic [ref=e524]:
+                  - paragraph [ref=e525]: 命中
+                  - paragraph [ref=e526]: "0"
+                - generic [ref=e527]:
+                  - paragraph [ref=e528]: 失败
+                  - paragraph [ref=e529]: "0"
+          - generic [ref=e530]:
+            - generic [ref=e531]:
+              - heading "动作时间线" [level=3] [ref=e532]
+              - generic [ref=e533]: "7"
+            - generic [ref=e534]:
+              - button "all" [ref=e535] [cursor=pointer]
+              - button "failed" [ref=e536] [cursor=pointer]
+              - button "blocked" [ref=e537] [cursor=pointer]
+            - textbox "搜索动作或选择器..." [ref=e538]
+            - generic [ref=e539]:
+              - button "#1 路 input no_effect passed input 路 在搜索框输入'洛克王国' input 已完成 (目标=#chat-textarea); checks=洛克王国:命中, 搜索结果:未命中, 官网:命中, 登录:命中; api=passed(2); diagnosis=no_effect" [ref=e540] [cursor=pointer]:
+                - generic [ref=e541]:
+                  - paragraph [ref=e542]: "#1 路 input"
+                  - generic [ref=e543]:
+                    - generic [ref=e544]: no_effect
+                    - generic [ref=e545]: passed
+                - paragraph [ref=e546]: input 路 在搜索框输入'洛克王国'
+                - paragraph [ref=e547]: input 已完成 (目标=#chat-textarea); checks=洛克王国:命中, 搜索结果:未命中, 官网:命中, 登录:命中; api=passed(2); diagnosis=no_effect
+              - button "#2 路 click api_mismatch failed click 路 点击'百度一下'按钮执行搜索 click 已完成 (目标=#chat-submit-button [text=百度一下]); checks=洛克王国:命中, 搜索结果:未命中, 官网:命中, 登录:命中; api=failed(15); diagnosis=api_mismatch" [ref=e548] [cursor=pointer]:
+                - generic [ref=e549]:
+                  - paragraph [ref=e550]: "#2 路 click"
+                  - generic [ref=e551]:
+                    - generic [ref=e552]: api_mismatch
+                    - generic [ref=e553]: failed
+                - paragraph [ref=e554]: click 路 点击'百度一下'按钮执行搜索
+                - paragraph [ref=e555]: click 已完成 (目标=#chat-submit-button [text=百度一下]); checks=洛克王国:命中, 搜索结果:未命中, 官网:命中, 登录:命中; api=failed(15); diagnosis=api_mismatch
+              - button "#3 路 wait no_effect neutral wait 路 等待搜索结果页面加载 wait 已完成; checks=洛克王国:命中, 搜索结果:未命中, 官网:命中, 登录:命中; api=neutral(0); diagnosis=no_effect" [ref=e556] [cursor=pointer]:
+                - generic [ref=e557]:
+                  - paragraph [ref=e558]: "#3 路 wait"
+                  - generic [ref=e559]:
+                    - generic [ref=e560]: no_effect
+                    - generic [ref=e561]: neutral
+                - paragraph [ref=e562]: wait 路 等待搜索结果页面加载
+                - paragraph [ref=e563]: wait 已完成; checks=洛克王国:命中, 搜索结果:未命中, 官网:命中, 登录:命中; api=neutral(0); diagnosis=no_effect
+              - button "#4 路 click api_mismatch failed click 路 点击《洛克王国:世界》官网链接进入目标网站 click 已完成 (目标=a.cos-no-underline.c-invoke-class [text=洛克王国:世界]); checks=洛克王国:世界:命中, 登录:命中, QQ登录:未命中, 账号:未命中, 密码:未命中; api=failed(12); diagnosis=api_mismatch" [ref=e564] [cursor=pointer]:
+                - generic [ref=e565]:
+                  - paragraph [ref=e566]: "#4 路 click"
+                  - generic [ref=e567]:
+                    - generic [ref=e568]: api_mismatch
+                    - generic [ref=e569]: failed
+                - paragraph [ref=e570]: click 路 点击《洛克王国:世界》官网链接进入目标网站
+                - paragraph [ref=e571]: click 已完成 (目标=a.cos-no-underline.c-invoke-class [text=洛克王国:世界]); checks=洛克王国:世界:命中, 登录:命中, QQ登录:未命中, 账号:未命中, 密码:未命中; api=failed(12); diagnosis=api_mismatch
+              - button "#5 路 wait no_effect neutral wait 路 等待页面加载完成 wait 已完成; checks=洛克王国:世界:命中, 登录:命中, QQ登录:未命中, 账号:未命中, 密码:未命中; api=neutral(0); diagnosis=no_effect" [ref=e572] [cursor=pointer]:
+                - generic [ref=e573]:
+                  - paragraph [ref=e574]: "#5 路 wait"
+                  - generic [ref=e575]:
+                    - generic [ref=e576]: no_effect
+                    - generic [ref=e577]: neutral
+                - paragraph [ref=e578]: wait 路 等待页面加载完成
+                - paragraph [ref=e579]: wait 已完成; checks=洛克王国:世界:命中, 登录:命中, QQ登录:未命中, 账号:未命中, 密码:未命中; api=neutral(0); diagnosis=no_effect
+              - button "#6 路 click api_mismatch failed click 路 点击搜索结果中的'洛克王国手游官网入口'链接 click 已完成 (目标=a.cos-no-underline.c-invoke-class [text=洛克王国手游官网入口]); checks=洛克王国:命中, 登录:命中, QQ登录:未命中, 账号:命中, 密码:未命中; api=failed(10); diagnosis=api_mismatch" [ref=e580] [cursor=pointer]:
+                - generic [ref=e581]:
+                  - paragraph [ref=e582]: "#6 路 click"
+                  - generic [ref=e583]:
+                    - generic [ref=e584]: api_mismatch
+                    - generic [ref=e585]: failed
+                - paragraph [ref=e586]: click 路 点击搜索结果中的'洛克王国手游官网入口'链接
+                - paragraph [ref=e587]: click 已完成 (目标=a.cos-no-underline.c-invoke-class [text=洛克王国手游官网入口]); checks=洛克王国:命中, 登录:命中, QQ登录:未命中, 账号:命中, 密码:未命中; api=failed(10); diagnosis=api_mismatch
+              - button "#7 路 wait no_effect neutral wait 路 等待页面跳转到目标网站 wait 已完成; checks=洛克王国:命中, 登录:命中, QQ登录:未命中, 账号:命中, 密码:未命中; api=neutral(0); diagnosis=no_effect" [ref=e588] [cursor=pointer]:
+                - generic [ref=e589]:
+                  - paragraph [ref=e590]: "#7 路 wait"
+                  - generic [ref=e591]:
+                    - generic [ref=e592]: no_effect
+                    - generic [ref=e593]: neutral
+                - paragraph [ref=e594]: wait 路 等待页面跳转到目标网站
+                - paragraph [ref=e595]: wait 已完成; checks=洛克王国:命中, 登录:命中, QQ登录:未命中, 账号:命中, 密码:未命中; api=neutral(0); diagnosis=no_effect
+        - complementary [ref=e596]:
+          - generic [ref=e597]:
+            - generic [ref=e598]:
+              - generic [ref=e599]:
+                - paragraph [ref=e600]: 下一步草案
+                - heading "批准、编辑、跳过或切换模式" [level=3] [ref=e601]
+              - generic [ref=e602]:
+                - button "auto_batch" [ref=e603] [cursor=pointer]
+                - button "stepwise_replan" [ref=e604] [cursor=pointer]
+            - paragraph [ref=e605]: 当前页面是百度搜索结果页，需要点击一个合适的搜索结果链接进入目标网站才能继续后续的登录操作
+            - generic [ref=e606]:
+              - textbox "閫夋嫨鍣ㄦ垨 URL" [disabled] [ref=e607]
+              - textbox "备注" [disabled] [ref=e608]
+            - generic [ref=e609]:
+              - button "批准" [disabled] [ref=e610]
+              - button "编辑并执行" [disabled] [ref=e611]
+              - button "跳过" [disabled] [ref=e612]
+              - button "重试" [disabled] [ref=e613]
+          - generic [ref=e614]:
+            - generic [ref=e615]:
+              - heading "步骤流量" [level=3] [ref=e616]
+              - generic [ref=e617]: "3"
+            - generic [ref=e618]:
+              - generic [ref=e619]:
+                - generic [ref=e620]:
+                  - generic [ref=e621]: GET
+                  - generic [ref=e622]: "200"
+                  - generic [ref=e623]: 2026年4月16日 01:07
+                - paragraph [ref=e624]: /other.php
+              - generic [ref=e625]:
+                - generic [ref=e626]:
+                  - generic [ref=e627]: GET
+                  - generic [ref=e628]: "206"
+                  - generic [ref=e629]: 2026年4月16日 01:07
+                - paragraph [ref=e630]: /tam-ogel/9fb44f0ce2207ecc128a2164fc6db2c2_3840_778.mp4
+              - generic [ref=e631]:
+                - generic [ref=e632]:
+                  - generic [ref=e633]: POST
+                  - generic [ref=e634]: "200"
+                  - generic [ref=e635]: 2026年4月16日 01:07
+                - paragraph [ref=e636]: /5b1ZeDe5KgQFm2e88IuM_a/mwb2.gif
+          - generic [ref=e637]:
+            - generic [ref=e638]:
+              - heading "模板修复候选" [level=3] [ref=e639]
+              - generic [ref=e640]: "0"
+            - paragraph [ref=e641]: 模板回放步骤一旦偏航，这里会自动生成一份候选修复 target 和校验建议。
+            - generic [ref=e642]:
+              - button "生成修复草案" [disabled] [ref=e643]
+              - button "应用到模板" [disabled] [ref=e644]
+              - button "应用并回放验证" [disabled] [ref=e645]
+            - generic [ref=e647]: 还没有修复候选，一旦模板步骤偏航，这里就会出现候选修复建议。
+          - generic [ref=e648]:
+            - generic [ref=e649]:
+              - heading "Case 资产" [level=3] [ref=e650]
+              - button "提取 Case" [disabled] [ref=e651]
+            - generic [ref=e653]: 通过后的运行会在这里沉淀成可复用 Case。
+      - generic [ref=e654]:
+        - generic [ref=e655]:
+          - generic [ref=e656]:
+            - paragraph [ref=e657]: 开发者证据
+            - heading "控制台、网络、DOM 和规划轨迹" [level=3] [ref=e658]
+            - paragraph [ref=e659]: 用这个面板直接查看代理为什么成功、暂停或失败。
+          - generic [ref=e660]:
+            - generic [ref=e661]: 控制台 7
+            - generic [ref=e662]: 网络 320
+            - generic [ref=e663]: 规划 3
+        - generic [ref=e664]:
+          - button "控制台" [ref=e665] [cursor=pointer]
+          - button "网络" [ref=e666] [cursor=pointer]
+          - button "DOM" [ref=e667] [cursor=pointer]
+          - button "规划器" [ref=e668] [cursor=pointer]
+        - generic [ref=e669]:
+          - generic [ref=e670]:
+            - generic [ref=e671]:
+              - generic [ref=e672]:
+                - generic [ref=e673]: log
+                - generic [ref=e674]: 2026年4月16日 01:08
+              - generic [ref=e675]: https://pss.bdstatic.com/r/www/cache/static/protocol/https/global/js/all_async_search_c5fd4d3.js:1853:479
+            - paragraph [ref=e676]: onbeforeunload save spyCache
+          - generic [ref=e677]:
+            - generic [ref=e678]:
+              - generic [ref=e679]:
+                - generic [ref=e680]: error
+                - generic [ref=e681]: 2026年4月16日 01:07
+              - generic [ref=e682]: about:blank:1:1
+            - paragraph [ref=e683]: "Failed to load resource: net::ERR_UNKNOWN_URL_SCHEME"
+          - generic [ref=e684]:
+            - generic [ref=e686]:
+              - generic [ref=e687]: pageerror
+              - generic [ref=e688]: 2026年4月16日 01:07
+            - paragraph [ref=e689]: "[MODULE_TIMEOUT]Hang(none) Miss(aladdin-san/app/game-page-profession/result_a3b83a6)"
+          - generic [ref=e690]:
+            - generic [ref=e692]:
+              - generic [ref=e693]: pageerror
+              - generic [ref=e694]: 2026年4月16日 01:07
+            - paragraph [ref=e695]: "[MODULE_TIMEOUT]Hang(aladdin-san/app/game-page-profession/result_a3b83a6) Miss(none)"
+          - generic [ref=e696]:
+            - generic [ref=e697]:
+              - generic [ref=e698]:
+                - generic [ref=e699]: error
+                - generic [ref=e700]: 2026年4月16日 01:07
+              - generic [ref=e701]: about:blank:1:1
+            - paragraph [ref=e702]: "Failed to load resource: net::ERR_UNKNOWN_URL_SCHEME"
+          - generic [ref=e703]:
+            - generic [ref=e704]:
+              - generic [ref=e705]:
+                - generic [ref=e706]: log
+                - generic [ref=e707]: 2026年4月16日 01:06
+              - generic [ref=e708]: https://pss.bdstatic.com/r/www/cache/static/protocol/https/global/js/all_async_search_c5fd4d3.js:2037:267
+            - paragraph [ref=e709]: "%c百度2026校园招聘简历投递：https://talent.baidu.com/jobs/list color:red"
+          - generic [ref=e710]:
+            - generic [ref=e711]:
+              - generic [ref=e712]:
+                - generic [ref=e713]: log
+                - generic [ref=e714]: 2026年4月16日 01:06
+              - generic [ref=e715]: https://pss.bdstatic.com/r/www/cache/static/protocol/https/global/js/all_async_search_c5fd4d3.js:2037:137
+            - paragraph [ref=e716]: 无畏是青春的态度，热AI是时代的脉搏。 各位新同学正以无畏的姿态奔赴通用人工智能的星辰大海！ 作为引领AI时代浪潮的主力军，广阔舞台，待你大展身手。 乘风破浪，勇往直前，未来百度将与你一起，创造无限可能！

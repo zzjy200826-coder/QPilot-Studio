@@ -1,0 +1,126 @@
+{
+  "project": {
+    "id": "Q-tINcN2Jh99Skh0ywds9",
+    "name": "Platform Walkthrough",
+    "baseUrl": "https://www.baidu.com",
+    "createdAt": "2026-04-18T02:52:38.373Z",
+    "updatedAt": "2026-04-18T02:52:38.373Z"
+  },
+  "environment": {
+    "id": "M1YUoBiRn_qImYf1K0KHR",
+    "projectId": "Q-tINcN2Jh99Skh0ywds9",
+    "name": "Baidu Staging",
+    "baseUrl": "https://www.baidu.com",
+    "authType": "none",
+    "owner": "Platform QA",
+    "riskLevel": "medium",
+    "createdAt": "2026-04-18T02:52:38.414Z",
+    "updatedAt": "2026-04-18T02:52:38.414Z"
+  },
+  "pool": {
+    "id": "eLIArLbzmYTkuMHJXlrrc",
+    "name": "Shanghai Injectors",
+    "region": "cn-east",
+    "capacity": 2,
+    "concurrencyLimit": 50,
+    "tags": [],
+    "createdAt": "2026-04-18T02:52:38.452Z",
+    "updatedAt": "2026-04-18T02:52:38.452Z"
+  },
+  "policy": {
+    "id": "OP1yR_5ax2W4nKDj-dpg4",
+    "projectId": "Q-tINcN2Jh99Skh0ywds9",
+    "name": "Baidu smoke gate",
+    "requiredFunctionalFlows": [
+      "search home"
+    ],
+    "minBenchmarkCoveragePct": 0,
+    "minBenchmarkPassRate": 0,
+    "requiredLoadProfileIds": [],
+    "minimumLoadVerdict": "watch",
+    "allowWaiver": true,
+    "approverRoles": [
+      "release-manager"
+    ],
+    "createdAt": "2026-04-18T02:52:38.502Z",
+    "updatedAt": "2026-04-18T02:52:38.502Z"
+  },
+  "profile": {
+    "id": "FKQy5SSKdxy9vcWXHJSpP",
+    "projectId": "Q-tINcN2Jh99Skh0ywds9",
+    "name": "Baidu k6 health",
+    "scenarioLabel": "Homepage steady smoke",
+    "targetBaseUrl": "https://www.baidu.com",
+    "environmentTargetId": "M1YUoBiRn_qImYf1K0KHR",
+    "engine": "k6_http",
+    "pattern": "steady",
+    "requestPath": "/",
+    "httpMethod": "GET",
+    "headersJson": "{\n  \"Accept\": \"text/html\"\n}",
+    "executionMode": "distributed",
+    "workerCount": 2,
+    "injectorPoolId": "eLIArLbzmYTkuMHJXlrrc",
+    "arrivalModel": "closed",
+    "gatePolicyId": "OP1yR_5ax2W4nKDj-dpg4",
+    "tagsJson": "[\"smoke\",\"search\"]",
+    "virtualUsers": 10,
+    "durationSec": 10,
+    "rampUpSec": 1,
+    "targetRps": 5,
+    "thresholds": {
+      "maxP95Ms": 2000,
+      "maxErrorRatePct": 5,
+      "minThroughputRps": 0
+    },
+    "createdAt": "2026-04-18T02:52:38.519Z",
+    "updatedAt": "2026-04-18T02:52:38.519Z"
+  },
+  "run": {
+    "id": "8k2RAUsEh-SJYfqXJViZv",
+    "projectId": "Q-tINcN2Jh99Skh0ywds9",
+    "profileId": "FKQy5SSKdxy9vcWXHJSpP",
+    "profileName": "Baidu k6 health",
+    "scenarioLabel": "Homepage steady smoke",
+    "targetBaseUrl": "https://www.baidu.com",
+    "environmentId": "M1YUoBiRn_qImYf1K0KHR",
+    "engine": "k6_http",
+    "pattern": "steady",
+    "environmentLabel": "Baidu Staging",
+    "status": "failed",
+    "verdict": "hold",
+    "source": "k6",
+    "metrics": {
+      "p50Ms": 0,
+      "p95Ms": 0,
+      "p99Ms": 0,
+      "errorRatePct": 0,
+      "throughputRps": 0,
+      "peakVus": 0,
+      "requestCount": 0,
+      "totalErrors": 0
+    },
+    "notes": "manual walkthrough\nSQLITE_CONSTRAINT_FOREIGNKEY: FOREIGN KEY constraint failed",
+    "executorLabel": "Inline control plane",
+    "startedAt": "2026-04-18T02:52:38.620Z",
+    "endedAt": "2026-04-18T02:52:59.806Z",
+    "createdAt": "2026-04-18T02:52:38.545Z"
+  },
+  "runDetail": {
+    "status": "failed",
+    "verdict": "hold",
+    "source": "k6",
+    "workers": 2
+  },
+  "release": {
+    "id": "VZp88wK2Mp8hef4L0pDzM",
+    "projectId": "Q-tINcN2Jh99Skh0ywds9",
+    "environmentId": "M1YUoBiRn_qImYf1K0KHR",
+    "gatePolicyId": "OP1yR_5ax2W4nKDj-dpg4",
+    "name": "Baidu release",
+    "buildLabel": "build-manual-1",
+    "status": "draft",
+    "createdAt": "2026-04-18T02:52:59.913Z",
+    "updatedAt": "2026-04-18T02:52:59.913Z"
+  },
+  "releaseVerdict": "hold"
+}

@@ -1,0 +1,38 @@
+{
+  "outDir": "C:\\Users\\zjy\\QPilot-Studio\\output\\playwright\\e2e-1776322255349",
+  "steps": [
+    {
+      "name": "projects",
+      "url": "http://localhost:5173/projects",
+      "title": "QPilot Studio",
+      "inputs": 4,
+      "newRunLinks": 2,
+      "screenshot": "C:\\Users\\zjy\\QPilot-Studio\\output\\playwright\\e2e-1776322255349\\01-projects.png"
+    },
+    {
+      "name": "runs",
+      "url": "http://localhost:5173/runs",
+      "title": "QPilot Studio",
+      "liveRunLinks": 0,
+      "reportLinks": 0,
+      "screenshot": "C:\\Users\\zjy\\QPilot-Studio\\output\\playwright\\e2e-1776322255349\\02-runs.png"
+    },
+    {
+      "name": "run-detail-guided",
+      "url": "http://localhost:5173/runs/OhQdA-0V0uUc9dFdFOB_S",
+      "title": "QPilot Studio",
+      "buttonCount": 2,
+      "reportLinks": 46,
+      "screenshot": "C:\\Users\\zjy\\QPilot-Studio\\output\\playwright\\e2e-1776322255349\\03-run-detail.png"
+    },
+    {
+      "name": "run-create",
+      "url": "http://localhost:5173/runs/new",
+      "title": "QPilot Studio",
+      "suspiciousGlyphCount": 0,
+      "fieldCount": 12,
+      "screenshot": "C:\\Users\\zjy\\QPilot-Studio\\output\\playwright\\e2e-1776322255349\\04-run-create.png"
+    }
+  ],
+  "issues": []
+}

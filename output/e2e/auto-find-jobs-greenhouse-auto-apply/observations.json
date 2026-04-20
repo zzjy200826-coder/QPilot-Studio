@@ -1,0 +1,9 @@
+{
+  "runtimeBaseUrl": "http://127.0.0.1:53705",
+  "webBaseUrl": "http://127.0.0.1:53706",
+  "fixtureBaseUrl": "http://127.0.0.1:53707",
+  "screenshots": {
+    "started": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-greenhouse-auto-apply\\screenshots\\01-jobs-auto-apply-started.png",
+    "submitted": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-greenhouse-auto-apply\\screenshots\\02-auto-apply-submitted.png"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "runtimeBaseUrl": "http://127.0.0.1:56780",
+  "webBaseUrl": "http://127.0.0.1:56781",
+  "fixtureBaseUrl": "http://127.0.0.1:56782",
+  "screenshots": {
+    "profile": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-greenhouse\\screenshots\\01-profile.png",
+    "sources": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-greenhouse\\screenshots\\02-sources.png",
+    "jobs": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-greenhouse\\screenshots\\03-jobs-prepared.png",
+    "review": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-greenhouse\\screenshots\\04-review-ready-to-submit.png",
+    "applications": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-greenhouse\\screenshots\\05-applications-submitted.png"
+  }
+}

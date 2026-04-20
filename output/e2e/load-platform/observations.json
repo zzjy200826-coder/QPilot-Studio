@@ -1,0 +1,16 @@
+{
+  "projectId": "proj-load-platform",
+  "environmentId": "env-staging-platform",
+  "injectorPoolId": "pool-ap-east",
+  "profileId": "profile-gateway-distributed",
+  "queuedRunId": "load-run-queued",
+  "failedRunId": "load-run-regressed",
+  "baselineRunId": "load-run-green",
+  "retriedRunId": null,
+  "screenshots": {
+    "controlTower": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\load-platform\\screenshots\\01-control-tower-queue.png",
+    "loadStudio": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\load-platform\\screenshots\\02-load-studio.png",
+    "queuedDetail": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\load-platform\\screenshots\\03-queued-detail.png",
+    "queuedCancelled": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\load-platform\\screenshots\\04-queued-cancelled.png"
+  }
+}

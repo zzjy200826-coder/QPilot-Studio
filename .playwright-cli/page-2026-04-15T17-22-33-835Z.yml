@@ -1,0 +1,33 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - heading "QPilot Studio" [level=1] [ref=e8]
+        - paragraph [ref=e9]: 本地优先的 AI 浏览器测试质量代理
+      - generic [ref=e10]:
+        - navigation [ref=e11]:
+          - link "项目" [ref=e12] [cursor=pointer]:
+            - /url: /projects
+          - link "运行" [ref=e13] [cursor=pointer]:
+            - /url: /runs
+          - link "新建运行" [ref=e14] [cursor=pointer]:
+            - /url: /runs/new
+        - generic [ref=e15]:
+          - generic [ref=e16]: 语言
+          - button "EN" [ref=e17] [cursor=pointer]
+          - button "中文" [ref=e18] [cursor=pointer]
+  - main [ref=e19]:
+    - generic [ref=e20]:
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - generic [ref=e24]: 项目筛选
+          - combobox [ref=e25]:
+            - option "全部项目" [selected]
+        - generic [ref=e26]:
+          - generic [ref=e27]: 搜索运行
+          - textbox "Run ID / 目标 / 目标 URL" [ref=e28]
+        - link "新建运行" [ref=e29] [cursor=pointer]:
+          - /url: /runs/new
+      - generic [ref=e30]:
+        - generic [ref=e31]: 运行历史（0）
+        - generic [ref=e33]: 正在加载运行...

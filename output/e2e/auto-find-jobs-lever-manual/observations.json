@@ -1,0 +1,12 @@
+{
+  "runtimeBaseUrl": "http://127.0.0.1:57265",
+  "webBaseUrl": "http://127.0.0.1:57266",
+  "fixtureBaseUrl": "http://127.0.0.1:57267",
+  "screenshots": {
+    "sources": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-lever-manual\\screenshots\\01-sources.png",
+    "awaitingManual": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-lever-manual\\screenshots\\02-awaiting-manual.png",
+    "readyToSubmit": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-lever-manual\\screenshots\\03-ready-to-submit.png",
+    "applications": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-lever-manual\\screenshots\\04-applications-submitted.png",
+    "duplicateBlocked": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\auto-find-jobs-lever-manual\\screenshots\\05-duplicate-blocked.png"
+  }
+}
