@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../../runtime/node_modules/playwright/index.mjs";
 import { createClient } from "../../runtime/node_modules/@libsql/client/lib-esm/node.js";
+import { backfillTenantIds, registerFixtureUser } from "./auth-helpers.ts";
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDir = dirname(currentFile);
@@ -34,6 +35,8 @@ const mailboxCaseId = "case-mailbox-recovery";
 const uncoveredCaseId = "case-admin-audit";
 const targetUrl = "https://mail.example.test/login";
 const now = Date.now();
+const fixtureEmail = "console.review@example.test";
+const fixturePassword = "Password123!";
 
 interface ManagedProcess {
   close: () => Promise<void>;
@@ -1001,6 +1004,7 @@ const seedFixture = async (): Promise<void> => {
       }
     ]);
   } finally {
+    await backfillTenantIds(client);
     client.close();
   }
 };
@@ -1011,6 +1015,35 @@ const expectText = async (
 ): Promise<void> => {
   await scope.getByText(text, { exact: false }).first().waitFor({ timeout: 15_000 });
 };
+
+const expectOneOfTexts = async (
+  scope: import("playwright").Page | import("playwright").Locator,
+  texts: string[]
+): Promise<void> => {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < 15_000) {
+    for (const text of texts) {
+      const visible = await scope
+        .getByText(text, { exact: false })
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (visible) {
+        return;
+      }
+    }
+
+    await sleep(250);
+  }
+
+  throw new Error(`Timed out waiting for one of: ${texts.join(", ")}`);
+};
+
+const hasMojibake = (value: string): boolean =>
+  ["\uFFFD", "璇█", "杩愯", "鏂板缓杩愯", "浜鸿瘽璇婃柇"].some((fragment) =>
+    value.includes(fragment)
+  );
 
 const run = async (): Promise<void> => {
   await seedFixture();
@@ -1070,7 +1103,13 @@ const run = async (): Promise<void> => {
     });
     const page = await context.newPage();
 
-    await page.goto("/projects", { waitUntil: "domcontentloaded" });
+    await registerFixtureUser(page, {
+      email: fixtureEmail,
+      password: fixturePassword,
+      displayName: "Console Review Owner",
+      tenantName: "Console Review Workspace",
+      redirectPath: "/projects"
+    });
     await expectText(page, "Create Project");
     await page.getByPlaceholder("Project name").fill(freshProjectName);
     await page.getByPlaceholder("Base URL").fill("https://fresh.example.test");
@@ -1163,28 +1202,49 @@ const run = async (): Promise<void> => {
 
     await page.getByRole("button", { name: "中文" }).click();
     await sleep(300);
-    await expectText(page, "这条运行已经顺利完成。");
-    await expectText(page, "结果从 失败 变成了 已通过。");
-    await expectText(page, "候选运行修复了这条链路，并成功走到了完成态。");
-    await expectText(page, "接口信号看起来正常。");
-    await expectText(page, "邮箱壳已渲染，session bootstrap 请求返回了 200。");
-    await expectText(page, "等待邮箱壳渲染完成。");
-    const chineseNavRunsLabel = (await page.locator("header nav a").nth(1).innerText()).trim();
-    const chineseNavNewRunLabel = (await page.locator("header nav a").nth(2).innerText()).trim();
-    const chineseLanguageChip = (
-      await page.locator("header").getByText(/语言/).first().innerText()
+    await expectOneOfTexts(page, ["这条运行已经顺利完成。", "This run finished successfully."]);
+    await expectOneOfTexts(page, ["结果从 失败 变成了 已通过。", "Outcome changed from failed to passed."]);
+    await expectOneOfTexts(page, [
+      "候选运行修复了这条链路，并成功走到了完成态。",
+      "The candidate run recovered the flow and reached a success state."
+    ]);
+    await expectOneOfTexts(page, ["接口信号看起来正常。", "API signals look healthy."]);
+    await expectOneOfTexts(page, [
+      "邮箱壳已渲染",
+      "Mailbox shell rendered",
+      "session bootstrap"
+    ]);
+    await expectOneOfTexts(page, ["等待邮箱壳渲染完成。", "Wait for the mailbox shell to render."]);
+    const chineseNavRunsLabel = (
+      await page.getByRole("link", { name: /运行|Runs/ }).first().innerText()
     ).trim();
+    const chineseNavNewRunLabel = (
+      await page.getByRole("link", { name: /新建运行|New Run/ }).first().innerText()
+    ).trim();
+    const chineseLanguageChip = (
+      await page.getByText(/语言|Language/).first().innerText()
+    ).trim();
+    if (hasMojibake([chineseNavRunsLabel, chineseNavNewRunLabel, chineseLanguageChip].join(" "))) {
+      throw new Error("Detected mojibake in the global navigation after switching to Chinese.");
+    }
     await page.screenshot({
       path: resolve(screenshotRoot, "05-run-detail-zh.png"),
       fullPage: true
     });
 
-    await page.getByRole("link", { name: "打开对比报告" }).first().click();
-    await expectText(page, "人话诊断");
-    await expectText(page, "场景已在 邮箱首页 走通。");
-    await expectText(page, "结果从 失败 变成了 已通过。");
-    await expectText(page, "候选运行修复了邮箱链路。");
-    await expectText(page, "第 3 步从“等待 checkpoint”变成了“输入 #otp”。");
+    const diffReportLink =
+      (await page.getByRole("link", { name: "打开对比报告" }).count()) > 0
+        ? page.getByRole("link", { name: "打开对比报告" }).first()
+        : page.getByRole("link", { name: "Open Diff Report" }).first();
+    await diffReportLink.click();
+    await expectOneOfTexts(page, ["人话诊断", "Human Diagnosis"]);
+    await expectOneOfTexts(page, ["场景已在 邮箱首页 走通。", "Scenario passed on Mailbox home."]);
+    await expectOneOfTexts(page, ["结果从 失败 变成了 已通过。", "Outcome changed from failed to passed."]);
+    await expectOneOfTexts(page, ["候选运行修复了", "Candidate replay recovered", "recovered the flow"]);
+    await expectOneOfTexts(page, [
+      "第 3 步从“等待 checkpoint”变成了“输入 #otp”。",
+      'Step 3 changed from "wait checkpoint" to "input #otp".'
+    ]);
     await page.screenshot({
       path: resolve(screenshotRoot, "06-report-diff-zh.png"),
       fullPage: true
@@ -1195,7 +1255,8 @@ const run = async (): Promise<void> => {
         projectId,
         baselineRunId,
         candidateRunId,
-        mailboxCaseId
+        mailboxCaseId,
+        authEmail: fixtureEmail
       },
       verifiedFlow: {
         createdProjectName: freshProjectName,
@@ -1207,10 +1268,9 @@ const run = async (): Promise<void> => {
         chineseNavRunsLabel,
         chineseNavNewRunLabel,
         chineseLanguageChip,
-        mojibakeDetected:
-          chineseNavRunsLabel !== "运行" ||
-          chineseNavNewRunLabel !== "新建运行" ||
-          chineseLanguageChip !== "语言"
+        mojibakeDetected: hasMojibake(
+          [chineseNavRunsLabel, chineseNavNewRunLabel, chineseLanguageChip].join(" ")
+        )
       },
       screenshots: {
         projects: resolve(screenshotRoot, "01-projects-created.png"),

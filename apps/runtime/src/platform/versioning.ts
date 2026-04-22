@@ -96,9 +96,19 @@ export const createLoadProfileVersionSnapshot = async (params: {
   );
   const now = Date.now();
   const payload = LoadProfileSchema.parse(params.profile);
+  const profileRows = (await params.db
+    .select()
+    .from(loadProfilesTable)
+    .where(eq(loadProfilesTable.id, params.profile.id))
+    .limit(1)) as LoadProfileRow[];
+  const profileRow = profileRows[0];
+  if (!profileRow?.tenantId) {
+    throw new Error("Load profile tenant could not be resolved.");
+  }
 
   await params.db.insert(loadProfileVersionsTable).values({
     id: nanoid(),
+    tenantId: profileRow.tenantId,
     profileId: params.profile.id,
     versionNumber,
     reason: params.reason ?? null,
@@ -184,9 +194,19 @@ export const createGatePolicyVersionSnapshot = async (params: {
   );
   const now = Date.now();
   const payload = GatePolicySchema.parse(params.policy);
+  const policyRows = (await params.db
+    .select()
+    .from(gatePoliciesTable)
+    .where(eq(gatePoliciesTable.id, params.policy.id))
+    .limit(1)) as GatePolicyRow[];
+  const policyRow = policyRows[0];
+  if (!policyRow?.tenantId) {
+    throw new Error("Gate policy tenant could not be resolved.");
+  }
 
   await params.db.insert(gatePolicyVersionsTable).values({
     id: nanoid(),
+    tenantId: policyRow.tenantId,
     policyId: params.policy.id,
     versionNumber,
     status: params.status,

@@ -11,11 +11,13 @@
 如果你现在属于这种状态，这很正常。
 
 你不是学得慢，而是前面的地基还没单独讲出来。  
-这份文档就是补地基用的。
+这份文档就是补地基用的。  
 
 看完这份文档以后，你再去看下面这些文档会轻松很多：
 
+- 如果你想从电脑零基础一路读到“本地跑通、理解系统、部署公网、学会业务使用”，第一站先看 [ULTIMATE-0-TO-1.zh-CN.md](./ULTIMATE-0-TO-1.zh-CN.md)。
 - [FROM-0-TO-1.zh-CN.md](./FROM-0-TO-1.zh-CN.md)
+- [DEPLOYMENT-101.zh-CN.md](./DEPLOYMENT-101.zh-CN.md)
 - [ARCHITECTURE-101.zh-CN.md](./ARCHITECTURE-101.zh-CN.md)
 - [RUN-LIFECYCLE-101.zh-CN.md](./RUN-LIFECYCLE-101.zh-CN.md)
 

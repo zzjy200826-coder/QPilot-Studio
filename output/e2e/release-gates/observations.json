@@ -1,0 +1,44 @@
+{
+  "releaseId": "release-gateway-2026-04-21",
+  "projectId": "proj-release-gates",
+  "environmentId": "env-release-staging",
+  "authEmail": "release.gates@example.test",
+  "buildId": "gateway-web-2184",
+  "commitSha": "9f4a3c1",
+  "functionalSourceRunId": "run-core-login-passed",
+  "loadSourceRunId": "load-run-gateway-hold",
+  "scriptReleaseId": "tRV56_ZuU4IJTvjXcj3Zd",
+  "scriptReleaseName": "2026.04.21 pipeline candidate",
+  "scriptReleaseBuildLabel": "build-2026-04-21.pipeline",
+  "scriptReleaseBuildId": "gateway-web-pipeline-2191",
+  "scriptReleaseCommitSha": "4c91abe",
+  "scriptReleaseVerdict": "ship",
+  "releaseSubmitTokenId": "Fbp9CGtSTB6hKCt1N_8oY",
+  "releaseSubmitTokenScopes": [
+    "release:create",
+    "gate:read"
+  ],
+  "helperReleaseName": "2026.04.21 helper candidate",
+  "helperReleaseBuildId": "gateway-web-helper-2190",
+  "helperReleaseCommitSha": "7ab12ef",
+  "helperFunctionalBindings": [
+    "run-core-login-passed"
+  ],
+  "helperLoadBindings": [
+    "load-run-gateway-recovery"
+  ],
+  "ignoredLatestFunctionalRunId": "run-core-login-failed-latest",
+  "ignoredLatestLoadRunId": "load-run-gateway-recovery",
+  "baselineLoadRunId": "load-run-gateway-green",
+  "screenshots": {
+    "controlTowerEntry": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\control-tower-release-entry.png",
+    "gateCenterEntry": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\gate-center-release-entry.png",
+    "releaseOverview": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\release-detail-overview.png",
+    "releaseSignals": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\release-detail-signals.png",
+    "waiver": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\release-detail-waiver.png",
+    "approval": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\release-detail-approval.png",
+    "scriptRelease": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\release-detail-script.png",
+    "helperCreate": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\release-create-helper.png",
+    "chinese": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\release-gates\\screenshots\\release-detail-zh.png"
+  }
+}

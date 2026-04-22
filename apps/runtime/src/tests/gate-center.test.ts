@@ -14,7 +14,7 @@ const policy: GatePolicy = {
   id: "policy-1",
   projectId: "project-1",
   name: "Default gate",
-  requiredFunctionalFlows: ["核心登录"],
+  requiredFunctionalFlows: ["core login"],
   minBenchmarkCoveragePct: 50,
   minBenchmarkPassRate: 60,
   requiredLoadProfileIds: ["load-profile-1"],
@@ -33,6 +33,10 @@ const release: ReleaseCandidate = {
   gatePolicyId: "policy-1",
   name: "2026.04.18",
   buildLabel: "build-1",
+  buildId: "build-id-1",
+  commitSha: "1234567",
+  sourceRunIds: [],
+  sourceLoadRunIds: [],
   status: "draft",
   notes: undefined,
   createdAt: "2026-04-18T00:00:00.000Z",
@@ -45,7 +49,7 @@ const functionalRun: Run = {
   status: "passed",
   mode: "general",
   targetUrl: "https://example.com",
-  goal: "执行核心登录流程",
+  goal: "execute core login flow",
   model: undefined,
   createdAt: "2026-04-18T00:00:00.000Z"
 } as Run;
@@ -134,7 +138,7 @@ const loadRun: LoadRun = {
 const activeWaiver: Waiver = {
   id: "waiver-1",
   releaseId: "release-1",
-  blockerKey: "functional:核心登录",
+  blockerKey: "functional:core login",
   reason: "temporary exception",
   requestedBy: "qa-lead",
   approvedBy: "qa-lead",
@@ -160,7 +164,66 @@ describe("gate center", () => {
 
     expect(result.verdict).toBe("watch");
     expect(result.waiverCount).toBe(1);
-    expect(result.signals.find((signal) => signal.id === "functional:核心登录")?.status).toBe("waived");
+    expect(result.signals.find((signal) => signal.id === "functional:core login")?.status).toBe(
+      "waived"
+    );
+  });
+
+  it("prefers explicitly bound functional and load evidence over newer project-wide runs", () => {
+    const result = buildReleaseGateResult({
+      release: {
+        ...release,
+        sourceRunIds: ["run-bound-pass"],
+        sourceLoadRunIds: ["load-bound-hold"]
+      },
+      policy,
+      projectRuns: [
+        {
+          ...functionalRun,
+          id: "run-latest-fail",
+          goal: "core login",
+          status: "failed",
+          createdAt: "2026-04-18T02:00:00.000Z"
+        } as Run,
+        {
+          ...functionalRun,
+          id: "run-bound-pass",
+          goal: "core login",
+          status: "passed",
+          createdAt: "2026-04-18T01:00:00.000Z"
+        } as Run
+      ],
+      caseTemplates: [],
+      benchmark,
+      loadProfiles: [loadProfile],
+      loadRuns: [
+        {
+          ...loadRun,
+          id: "load-latest-ship",
+          verdict: "ship",
+          status: "passed",
+          createdAt: "2026-04-18T02:00:00.000Z"
+        },
+        {
+          ...loadRun,
+          id: "load-bound-hold",
+          verdict: "hold",
+          status: "failed",
+          createdAt: "2026-04-18T01:00:00.000Z"
+        }
+      ],
+      waivers: [],
+      nowIso: "2026-04-18T03:00:00.000Z"
+    });
+
+    const functionalSignal = result.signals.find((signal) => signal.kind === "functional");
+    const loadSignal = result.signals.find((signal) => signal.kind === "load");
+
+    expect(result.verdict).toBe("hold");
+    expect(functionalSignal?.sourceId).toBe("run-bound-pass");
+    expect(functionalSignal?.status).toBe("passed");
+    expect(loadSignal?.sourceId).toBe("load-bound-hold");
+    expect(loadSignal?.status).toBe("failed");
   });
 
   it("builds a control tower snapshot from releases, gates, and worker health", () => {

@@ -404,6 +404,115 @@ export const EncryptedTextSchema = z.object({
   tag: z.string()
 });
 
+export const TenantRoleSchema = z.enum(["owner", "member", "viewer"]);
+
+export const TenantScopeSchema = z.enum(["release:create", "gate:read"]);
+
+export const TenantSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const UserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  displayName: z.string().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const MembershipSchema = z.object({
+  id: z.string(),
+  tenantId: z.string(),
+  userId: z.string(),
+  role: TenantRoleSchema,
+  createdAt: z.string(),
+  updatedAt: z.string()
+});
+
+export const ApiTokenSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  scopes: z.array(TenantScopeSchema).default([]),
+  lastUsedAt: z.string().optional(),
+  expiresAt: z.string().optional(),
+  createdAt: z.string()
+});
+
+export const AuthMeSchema = z.object({
+  user: UserSchema,
+  tenant: TenantSchema,
+  membership: MembershipSchema,
+  authenticatedVia: z.enum(["session", "api_token"]).default("session")
+});
+
+export const ApiTokenCreateResultSchema = z.object({
+  apiToken: ApiTokenSchema,
+  plainTextToken: z.string()
+});
+
+export const RestorePhaseSchema = z.enum([
+  "pre_restore_snapshot",
+  "download",
+  "decrypt",
+  "extract",
+  "swap",
+  "restart",
+  "verify",
+  "rollback",
+  "completed"
+]);
+
+export const RestoreVerificationCheckStateSchema = z.enum(["passed", "failed", "skipped"]);
+
+export const RestoreVerificationCheckSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  state: RestoreVerificationCheckStateSchema,
+  status: z.number().int().nonnegative().optional(),
+  detail: z.string(),
+  checkedAt: z.string()
+});
+
+export const RestoreVerificationResultSchema = z.object({
+  ok: z.boolean(),
+  checkedAt: z.string(),
+  baseUrl: z.string(),
+  checks: z.array(RestoreVerificationCheckSchema).default([])
+});
+
+export const BackupOperationDetailSchema = z
+  .object({
+    preflightGeneratedAt: z.string().optional(),
+    phase: RestorePhaseSchema.optional(),
+    phaseUpdatedAt: z.string().optional(),
+    verification: RestoreVerificationResultSchema.optional(),
+    rollbackSnapshotId: z.string().optional(),
+    rollbackVerification: RestoreVerificationResultSchema.optional(),
+    rollbackSucceeded: z.boolean().optional(),
+    failureReason: z.string().optional(),
+    rescueSnapshotId: z.string().optional(),
+    restoredSnapshotId: z.string().optional()
+  })
+  .catchall(z.unknown());
+
+export const MaintenanceStatusSchema = z.object({
+  active: z.boolean().default(true),
+  operationId: z.string(),
+  snapshotId: z.string(),
+  createdAt: z.string(),
+  message: z.string().default("Runtime maintenance window is active."),
+  phase: RestorePhaseSchema.optional(),
+  phaseUpdatedAt: z.string().optional(),
+  verification: RestoreVerificationResultSchema.optional(),
+  rollbackVerification: RestoreVerificationResultSchema.optional(),
+  rollbackSnapshotId: z.string().optional(),
+  failureReason: z.string().optional()
+});
+
 export const ProjectSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -1019,6 +1128,10 @@ export const ReleaseCandidateSchema = z.object({
   gatePolicyId: z.string(),
   name: z.string(),
   buildLabel: z.string(),
+  buildId: z.string().optional(),
+  commitSha: z.string().optional(),
+  sourceRunIds: z.array(z.string()).default([]),
+  sourceLoadRunIds: z.array(z.string()).default([]),
   status: ReleaseCandidateStatusSchema,
   notes: z.string().optional(),
   createdAt: z.string(),
@@ -1111,6 +1224,67 @@ export const PlatformInfrastructureSummarySchema = z.object({
   checkedAt: z.string()
 });
 
+export const OpsDependencyKeySchema = z.enum([
+  "sqlite",
+  "filesystem",
+  "redis",
+  "prometheus",
+  "openai"
+]);
+
+export const OpsDependencyStateSchema = z.enum([
+  "ready",
+  "warning",
+  "failed",
+  "disabled"
+]);
+
+export const OpsDependencyStatusSchema = z.object({
+  key: OpsDependencyKeySchema,
+  label: z.string(),
+  state: OpsDependencyStateSchema,
+  required: z.boolean(),
+  detail: z.string(),
+  endpoint: z.string().optional(),
+  latencyMs: z.number().int().nonnegative().optional(),
+  checkedAt: z.string()
+});
+
+export const ReadinessStatusSchema = z.object({
+  ready: z.boolean(),
+  checkedAt: z.string(),
+  failedComponents: z.array(z.string()).default([]),
+  warnings: z.array(z.string()).default([]),
+  maintenance: MaintenanceStatusSchema.nullable().default(null),
+  components: z.array(OpsDependencyStatusSchema).default([])
+});
+
+export const OpsAlertSeveritySchema = z.enum(["info", "warning", "critical"]);
+
+export const OpsAlertStatusSchema = z.enum(["active", "resolved"]);
+
+export const OpsAlertEventSchema = z.object({
+  id: z.string(),
+  tenantId: z.string().optional(),
+  ruleKey: z.string(),
+  severity: OpsAlertSeveritySchema,
+  status: OpsAlertStatusSchema,
+  summary: z.string(),
+  detail: z.record(z.string(), z.unknown()).default({}),
+  fingerprint: z.string(),
+  firstTriggeredAt: z.string(),
+  lastTriggeredAt: z.string(),
+  lastDeliveredAt: z.string().optional(),
+  lastDeliveryError: z.string().optional()
+});
+
+export const OpsReleaseRiskSchema = z.object({
+  holdVerdictsLast24h: z.number().int().nonnegative(),
+  pendingBlockers: z.number().int().nonnegative(),
+  lookbackMinutes: z.number().int().positive(),
+  checkedAt: z.string()
+});
+
 export const PlatformLoadQueueSummarySchema = z.object({
   mode: z.enum(["inline", "bullmq"]),
   queueName: z.string(),
@@ -1150,6 +1324,153 @@ export const PlatformLoadQueueSummarySchema = z.object({
     )
     .default([]),
   checkedAt: z.string()
+});
+
+export const BackupHealthStateSchema = z.enum([
+  "ready",
+  "warning",
+  "failed",
+  "not_configured"
+]);
+
+export const BackupHealthCheckKeySchema = z.enum([
+  "config",
+  "storage",
+  "freshness",
+  "scheduler",
+  "execution"
+]);
+
+export const BackupSnapshotKindSchema = z.enum(["scheduled", "manual", "pre_restore"]);
+
+export const BackupOperationTypeSchema = z.enum(["backup", "restore"]);
+
+export const BackupOperationStatusSchema = z.enum([
+  "queued",
+  "running",
+  "succeeded",
+  "failed"
+]);
+
+export const BackupPreflightCheckStatusSchema = z.enum(["passed", "warning", "failed"]);
+
+export const BackupSnapshotSchema = z.object({
+  snapshotId: z.string(),
+  kind: BackupSnapshotKindSchema,
+  createdAt: z.string(),
+  sharedRoot: z.string(),
+  appVersion: z.string(),
+  gitCommit: z.string().optional(),
+  schemaVersion: z.number().int().positive(),
+  archiveBytes: z.number().int().nonnegative(),
+  sha256: z.string(),
+  host: z.string(),
+  objectKey: z.string(),
+  manifestKey: z.string()
+});
+
+export const BackupOperationSchema = z.object({
+  id: z.string(),
+  type: BackupOperationTypeSchema,
+  status: BackupOperationStatusSchema,
+  snapshotId: z.string().optional(),
+  snapshotKind: BackupSnapshotKindSchema.optional(),
+  triggeredBy: z.string().optional(),
+  message: z.string().optional(),
+  error: z.string().optional(),
+  detail: BackupOperationDetailSchema.default({}),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  startedAt: z.string().optional(),
+  finishedAt: z.string().optional()
+});
+
+export const BackupHealthCheckSchema = z.object({
+  key: BackupHealthCheckKeySchema,
+  label: z.string(),
+  state: BackupHealthStateSchema,
+  detail: z.string(),
+  checkedAt: z.string()
+});
+
+export const BackupSchedulerStatusSchema = z.object({
+  supported: z.boolean(),
+  enabled: z.boolean().optional(),
+  activeState: z.string().optional(),
+  subState: z.string().optional(),
+  lastTriggerAt: z.string().optional(),
+  nextTriggerAt: z.string().optional(),
+  lastResult: z.string().optional(),
+  detail: z.string().optional()
+});
+
+export const BackupHealthFailedOperationSchema = z.object({
+  operationId: z.string(),
+  updatedAt: z.string(),
+  error: z.string(),
+  snapshotId: z.string().optional()
+});
+
+export const BackupHealthSummarySchema = z.object({
+  state: BackupHealthStateSchema,
+  checkedAt: z.string(),
+  lastSuccessfulBackupAt: z.string().optional(),
+  latestSnapshotId: z.string().optional(),
+  lastFailedOperation: BackupHealthFailedOperationSchema.optional(),
+  scheduler: BackupSchedulerStatusSchema,
+  checks: z.array(BackupHealthCheckSchema).default([])
+});
+
+export const RuntimeMaintenanceStatusSchema = z.object({
+  active: z.boolean(),
+  checkedAt: z.string(),
+  maintenance: MaintenanceStatusSchema.nullable().default(null),
+  operation: BackupOperationSchema.nullable().default(null)
+});
+
+export const BackupConfigStatusSchema = z.object({
+  configured: z.boolean(),
+  endpoint: z.string().optional(),
+  bucket: z.string().optional(),
+  prefix: z.string(),
+  sharedRoot: z.string(),
+  opsRoot: z.string(),
+  encryptionConfigured: z.boolean(),
+  retentionDays: z.number().int().positive(),
+  schedule: z.string(),
+  lastSuccessfulBackupAt: z.string().optional(),
+  health: BackupHealthSummarySchema,
+  activeOperation: BackupOperationSchema.optional(),
+  restoreHistory: z.array(BackupOperationSchema).default([])
+});
+
+export const OpsSummarySchema = z.object({
+  readiness: ReadinessStatusSchema,
+  dependencies: z.array(OpsDependencyStatusSchema).default([]),
+  queueHealth: PlatformLoadQueueSummarySchema,
+  releaseRisk: OpsReleaseRiskSchema,
+  backupHealth: BackupHealthSummarySchema,
+  recentAlerts: z.array(OpsAlertEventSchema).default([]),
+  generatedAt: z.string()
+});
+
+export const BackupPreflightCheckSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  status: BackupPreflightCheckStatusSchema,
+  detail: z.string()
+});
+
+export const BackupPreflightResultSchema = z.object({
+  snapshotId: z.string(),
+  ok: z.boolean(),
+  generatedAt: z.string(),
+  estimatedRequiredBytes: z.number().int().nonnegative(),
+  availableBytes: z.number().int().nonnegative().optional(),
+  snapshot: BackupSnapshotSchema,
+  checks: z.array(BackupPreflightCheckSchema).default([]),
+  blockers: z.array(z.string()).default([]),
+  warnings: z.array(z.string()).default([])
 });
 
 export const ReleaseGateDetailSchema = z.object({
@@ -1296,6 +1617,22 @@ export type LiveStreamMessage = z.infer<typeof LiveStreamMessageSchema>;
 export type LiveStreamFrame = z.infer<typeof LiveStreamFrameSchema>;
 export type LiveStreamMetric = z.infer<typeof LiveStreamMetricSchema>;
 export type Project = z.infer<typeof ProjectSchema>;
+export type TenantRole = z.infer<typeof TenantRoleSchema>;
+export type TenantScope = z.infer<typeof TenantScopeSchema>;
+export type Tenant = z.infer<typeof TenantSchema>;
+export type User = z.infer<typeof UserSchema>;
+export type Membership = z.infer<typeof MembershipSchema>;
+export type ApiToken = z.infer<typeof ApiTokenSchema>;
+export type AuthMe = z.infer<typeof AuthMeSchema>;
+export type ApiTokenCreateResult = z.infer<typeof ApiTokenCreateResultSchema>;
+export type RestorePhase = z.infer<typeof RestorePhaseSchema>;
+export type RestoreVerificationCheckState = z.infer<
+  typeof RestoreVerificationCheckStateSchema
+>;
+export type RestoreVerificationCheck = z.infer<typeof RestoreVerificationCheckSchema>;
+export type RestoreVerificationResult = z.infer<typeof RestoreVerificationResultSchema>;
+export type BackupOperationDetail = z.infer<typeof BackupOperationDetailSchema>;
+export type MaintenanceStatus = z.infer<typeof MaintenanceStatusSchema>;
 export type RunConfig = z.infer<typeof RunConfigSchema>;
 export type Run = z.infer<typeof RunSchema>;
 export type RunComparison = z.infer<typeof RunComparisonSchema>;
@@ -1362,6 +1699,31 @@ export type PlatformInfraServiceKind = z.infer<typeof PlatformInfraServiceKindSc
 export type PlatformInfraServiceState = z.infer<typeof PlatformInfraServiceStateSchema>;
 export type PlatformInfraServiceStatus = z.infer<typeof PlatformInfraServiceStatusSchema>;
 export type PlatformInfrastructureSummary = z.infer<typeof PlatformInfrastructureSummarySchema>;
+export type OpsDependencyKey = z.infer<typeof OpsDependencyKeySchema>;
+export type OpsDependencyState = z.infer<typeof OpsDependencyStateSchema>;
+export type OpsDependencyStatus = z.infer<typeof OpsDependencyStatusSchema>;
+export type ReadinessStatus = z.infer<typeof ReadinessStatusSchema>;
+export type OpsAlertSeverity = z.infer<typeof OpsAlertSeveritySchema>;
+export type OpsAlertStatus = z.infer<typeof OpsAlertStatusSchema>;
+export type OpsAlertEvent = z.infer<typeof OpsAlertEventSchema>;
+export type OpsReleaseRisk = z.infer<typeof OpsReleaseRiskSchema>;
+export type OpsSummary = z.infer<typeof OpsSummarySchema>;
+export type BackupHealthState = z.infer<typeof BackupHealthStateSchema>;
+export type BackupHealthCheckKey = z.infer<typeof BackupHealthCheckKeySchema>;
+export type BackupSnapshotKind = z.infer<typeof BackupSnapshotKindSchema>;
+export type BackupOperationType = z.infer<typeof BackupOperationTypeSchema>;
+export type BackupOperationStatus = z.infer<typeof BackupOperationStatusSchema>;
+export type BackupPreflightCheckStatus = z.infer<typeof BackupPreflightCheckStatusSchema>;
+export type BackupSnapshot = z.infer<typeof BackupSnapshotSchema>;
+export type BackupOperation = z.infer<typeof BackupOperationSchema>;
+export type BackupHealthCheck = z.infer<typeof BackupHealthCheckSchema>;
+export type BackupSchedulerStatus = z.infer<typeof BackupSchedulerStatusSchema>;
+export type BackupHealthFailedOperation = z.infer<typeof BackupHealthFailedOperationSchema>;
+export type BackupHealthSummary = z.infer<typeof BackupHealthSummarySchema>;
+export type RuntimeMaintenanceStatus = z.infer<typeof RuntimeMaintenanceStatusSchema>;
+export type BackupConfigStatus = z.infer<typeof BackupConfigStatusSchema>;
+export type BackupPreflightCheck = z.infer<typeof BackupPreflightCheckSchema>;
+export type BackupPreflightResult = z.infer<typeof BackupPreflightResultSchema>;
 export type PlatformLoadQueueSummary = z.infer<typeof PlatformLoadQueueSummarySchema>;
 export type ReleaseGateDetail = z.infer<typeof ReleaseGateDetailSchema>;
 export type ReleaseAudit = z.infer<typeof ReleaseAuditSchema>;

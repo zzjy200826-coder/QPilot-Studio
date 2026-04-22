@@ -3,15 +3,19 @@ import type { ReactNode } from "react";
 export const PlatformFormField = ({
   label,
   children,
-  hint
+  hint,
+  htmlFor
 }: {
   label: ReactNode;
   children: ReactNode;
   hint?: ReactNode;
+  htmlFor?: string;
 }) => (
   <div>
-    <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>
+    <label htmlFor={htmlFor} className="mb-2 block text-sm font-medium text-slate-700">
+      {label}
+    </label>
     {children}
-    {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+    {hint ? <p className="mt-2 text-xs leading-5 text-slate-500">{hint}</p> : null}
   </div>
 );

@@ -51,13 +51,13 @@ const statusTone: Record<
 };
 
 const terminalStatuses = new Set<LoadRun["status"]>(["passed", "failed", "stopped"]);
-const inputClass = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm";
+const inputClass = "console-input text-sm";
 const primaryButtonClass =
-  "rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50";
+  "console-button-primary text-sm disabled:cursor-not-allowed disabled:opacity-50";
 const secondaryButtonClass =
-  "rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50";
+  "console-button-secondary text-sm disabled:cursor-not-allowed disabled:opacity-50";
 const actionChipClass =
-  "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50";
+  "console-button-subtle px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50";
 
 const parseEmbeddedMessage = (message: string): string | null => {
   try {
@@ -94,7 +94,7 @@ const SetupCard = ({
   resource: string;
   action: ReactNode;
 }) => (
-  <article className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+  <article className="console-panel-subtle px-4 py-4">
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
         <p className="text-sm font-medium text-slate-900">{label}</p>
@@ -520,7 +520,7 @@ export const LoadStudioPage = () => {
         <section className={panelClass}>
           <PlatformSectionHeader dense={isDense} eyebrow="Setup" title="Platform setup" description="Project, environment, pool, and gate resources." />
           <div className={`mt-5 grid xl:grid-cols-2 ${pageGap}`}>
-            <SetupCard label="Project" state={resolvedProjectId ? "Ready" : "Required"} resource={selectedProject?.name ?? "No project selected"} action={<Link to="/projects" className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">Open</Link>} />
+            <SetupCard label="Project" state={resolvedProjectId ? "Ready" : "Required"} resource={selectedProject?.name ?? "No project selected"} action={<Link to="/projects" className="console-button-secondary px-3 py-1.5 text-xs">Open</Link>} />
             <SetupCard label="Environment" state={environments.length > 0 ? "Ready" : "Missing"} resource={selectedEnvironment?.name ?? environments[0]?.name ?? "No environment"} action={<button type="button" onClick={() => setDrawer("environment")} className={actionChipClass}>Create</button>} />
             <SetupCard label="Injector pool" state={injectorPools.length > 0 ? "Ready" : "Optional"} resource={injectorPools[0]?.name ?? "No pool"} action={<button type="button" onClick={() => setDrawer("pool")} className={actionChipClass}>Create</button>} />
             <SetupCard label="Gate policy" state={gatePolicies.length > 0 ? "Ready" : "Optional"} resource={gatePolicies[0]?.name ?? "No policy"} action={<button type="button" onClick={() => setDrawer("gate")} disabled={!resolvedProjectId} className={actionChipClass}>Create</button>} />

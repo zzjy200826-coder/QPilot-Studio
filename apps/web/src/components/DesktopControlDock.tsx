@@ -121,15 +121,15 @@ export const DesktopControlDock = () => {
   const freshnessLabel = formatRelativeTime(control.lastEventAt, pick("just now", "刚刚"));
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/94 backdrop-blur">
-      <div className="mx-auto flex max-w-[1440px] flex-col gap-3 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-[rgba(248,250,252,0.96)] backdrop-blur">
+      <div className="mx-auto flex max-w-[1640px] flex-col gap-3 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
             {pick("Desktop Run Assistant", "桌面运行助手")}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span
-              className={`rounded-full border px-3 py-1 text-xs font-medium ${primaryStatusTone}`}
+              className={`rounded-full border px-3 py-1 text-xs font-medium shadow-sm ${primaryStatusTone}`}
             >
               {primaryStatusLabel}
             </span>
@@ -151,7 +151,7 @@ export const DesktopControlDock = () => {
           {!isOnLivePage ? (
             <Link
               to={liveHref}
-              className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-900 hover:text-slate-900"
+                className="console-button-secondary px-3 py-1 text-xs"
             >
               {pick("Open Live", "打开实时页")}
             </Link>
@@ -161,7 +161,7 @@ export const DesktopControlDock = () => {
               type="button"
               onClick={() => frontMutation.mutate(activeRun.id)}
               disabled={frontMutation.isPending}
-              className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-700 transition hover:border-slate-900 hover:text-slate-900 disabled:opacity-60"
+               className="console-button-secondary px-3 py-1 text-xs disabled:opacity-60"
             >
               {frontMutation.isPending
                 ? pick("Focusing...", "前置中...")
@@ -172,7 +172,7 @@ export const DesktopControlDock = () => {
             type="button"
             onClick={primaryAction.onClick}
             disabled={primaryAction.busy}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition disabled:opacity-60 ${primaryAction.tone}`}
+            className={`rounded-full border px-3 py-1 text-xs font-medium shadow-sm transition disabled:opacity-60 ${primaryAction.tone}`}
           >
             {primaryAction.busy ? `${primaryAction.label}...` : primaryAction.label}
           </button>
@@ -180,7 +180,7 @@ export const DesktopControlDock = () => {
             type="button"
             onClick={() => abortMutation.mutate(activeRun.id)}
             disabled={abortMutation.isPending}
-            className="rounded-full border border-rose-300 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700 transition hover:border-rose-400 hover:bg-rose-100 disabled:opacity-60"
+            className="console-button-danger px-3 py-1 text-xs disabled:opacity-60"
           >
             {abortMutation.isPending ? pick("Stopping...", "停止中...") : pick("Abort", "停止运行")}
           </button>

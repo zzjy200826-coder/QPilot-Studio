@@ -25,6 +25,26 @@ const normalize = (value: string): string => value.trim().toLowerCase();
 const isActiveWaiver = (waiver: Waiver, nowIso: string): boolean =>
   waiver.status === "active" && Date.parse(waiver.expiresAt) > Date.parse(nowIso);
 
+const filterBoundEvidence = <T extends { id: string }>(items: T[], boundIds: string[]): T[] => {
+  if (boundIds.length === 0) {
+    return items;
+  }
+
+  const idSet = new Set(boundIds);
+  return items.filter((item) => idSet.has(item.id));
+};
+
+export const scopeReleaseEvidence = <TRun extends { id: string }, TLoadRun extends { id: string }>(
+  params: {
+    release: Pick<ReleaseCandidate, "sourceRunIds" | "sourceLoadRunIds">;
+    projectRuns: TRun[];
+    loadRuns: TLoadRun[];
+  }
+): { projectRuns: TRun[]; loadRuns: TLoadRun[] } => ({
+  projectRuns: filterBoundEvidence(params.projectRuns, params.release.sourceRunIds),
+  loadRuns: filterBoundEvidence(params.loadRuns, params.release.sourceLoadRunIds)
+});
+
 const matchesFunctionalFlow = (run: Run, flow: string): boolean => {
   const token = normalize(flow);
   return [run.goal, run.replayCaseTitle]
@@ -146,10 +166,15 @@ export const buildReleaseGateResult = (params: {
   nowIso?: string;
 }): GateResult => {
   const nowIso = params.nowIso ?? new Date().toISOString();
+  const scopedEvidence = scopeReleaseEvidence({
+    release: params.release,
+    projectRuns: params.projectRuns,
+    loadRuns: params.loadRuns
+  });
   const signals = [
-    ...buildFunctionalSignals(params.policy, params.projectRuns),
+    ...buildFunctionalSignals(params.policy, scopedEvidence.projectRuns),
     ...buildBenchmarkSignals(params.policy, params.benchmark),
-    ...buildLoadSignals(params.policy, params.loadProfiles, params.loadRuns, params.release)
+    ...buildLoadSignals(params.policy, params.loadProfiles, scopedEvidence.loadRuns, params.release)
   ];
 
   const activeWaivers = params.waivers.filter((waiver) => isActiveWaiver(waiver, nowIso));

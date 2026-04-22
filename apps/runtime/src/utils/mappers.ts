@@ -1,6 +1,7 @@
 import type {
   Action,
   ApprovalEvent,
+  ApiToken,
   CaseTemplate,
   ChallengeKind,
   EncryptedText,
@@ -26,17 +27,62 @@ import type {
   LoadRunSampleWindow,
   LoadRunWorker,
   LoadThreshold,
+  Membership,
+  OpsAlertEvent,
   Project,
   ReleaseCandidate,
   Run,
   Step,
+  Tenant,
+  TenantScope,
   TestCase,
+  User,
   VerificationResult,
   Waiver
 } from "@qpilot/shared";
 
+export interface TenantRow {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface UserRow {
+  id: string;
+  email: string;
+  passwordHash: string;
+  displayName: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface MembershipRow {
+  id: string;
+  tenantId: string;
+  userId: string;
+  role: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ApiTokenRow {
+  id: string;
+  tenantId: string;
+  userId: string | null;
+  membershipId: string | null;
+  label: string;
+  secretHash: string;
+  scopesJson: string;
+  lastUsedAt: number | null;
+  expiresAt: number | null;
+  createdAt: number;
+}
+
 export interface ProjectRow {
   id: string;
+  tenantId?: string | null;
   name: string;
   baseUrl: string;
   usernameCipher: string | null;
@@ -51,6 +97,7 @@ export interface ProjectRow {
 
 export interface RunRow {
   id: string;
+  tenantId?: string | null;
   projectId: string;
   status: string;
   mode: string;
@@ -74,6 +121,7 @@ export interface RunRow {
 
 export interface StepRow {
   id: string;
+  tenantId?: string | null;
   runId: string;
   stepIndex: number;
   pageUrl: string;
@@ -89,6 +137,7 @@ export interface StepRow {
 
 export interface TestCaseRow {
   id: string;
+  tenantId?: string | null;
   runId: string;
   module: string;
   title: string;
@@ -104,6 +153,7 @@ export interface TestCaseRow {
 
 export interface CaseTemplateRow {
   id: string;
+  tenantId?: string | null;
   projectId: string;
   runId: string;
   type: string;
@@ -119,6 +169,7 @@ export interface CaseTemplateRow {
 
 export interface LoadProfileRow {
   id: string;
+  tenantId?: string | null;
   projectId: string;
   name: string;
   scenarioLabel: string;
@@ -151,6 +202,7 @@ export interface LoadProfileRow {
 
 export interface LoadRunRow {
   id: string;
+  tenantId?: string | null;
   projectId: string;
   profileId: string;
   profileName: string;
@@ -176,6 +228,7 @@ export interface LoadRunRow {
 
 export interface LoadRunWorkerRow {
   id: string;
+  tenantId?: string | null;
   runId: string;
   workerIndex: number;
   workerLabel: string;
@@ -194,6 +247,7 @@ export interface LoadRunWorkerRow {
 
 export interface LoadRunSampleWindowRow {
   id: string;
+  tenantId?: string | null;
   runId: string;
   ts: number;
   p95Ms: number;
@@ -205,6 +259,7 @@ export interface LoadRunSampleWindowRow {
 
 export interface LoadProfileBaselineEventRow {
   id: string;
+  tenantId?: string | null;
   profileId: string;
   runId: string;
   action: string;
@@ -214,6 +269,7 @@ export interface LoadProfileBaselineEventRow {
 
 export interface LoadProfileVersionRow {
   id: string;
+  tenantId?: string | null;
   profileId: string;
   versionNumber: number;
   reason: string | null;
@@ -223,6 +279,7 @@ export interface LoadProfileVersionRow {
 
 export interface EnvironmentTargetRow {
   id: string;
+  tenantId?: string | null;
   projectId: string | null;
   name: string;
   baseUrl: string;
@@ -235,6 +292,7 @@ export interface EnvironmentTargetRow {
 
 export interface EnvironmentServiceNodeRow {
   id: string;
+  tenantId?: string | null;
   environmentId: string;
   name: string;
   protocol: string;
@@ -248,6 +306,7 @@ export interface EnvironmentServiceNodeRow {
 
 export interface InjectorPoolRow {
   id: string;
+  tenantId?: string | null;
   name: string;
   region: string;
   capacity: number;
@@ -259,6 +318,7 @@ export interface InjectorPoolRow {
 
 export interface InjectorWorkerRow {
   id: string;
+  tenantId?: string | null;
   poolId: string;
   name: string;
   status: string;
@@ -271,6 +331,7 @@ export interface InjectorWorkerRow {
 
 export interface GatePolicyRow {
   id: string;
+  tenantId?: string | null;
   projectId: string;
   name: string;
   requiredFunctionalFlowsJson: string;
@@ -287,6 +348,7 @@ export interface GatePolicyRow {
 
 export interface GatePolicyVersionRow {
   id: string;
+  tenantId?: string | null;
   policyId: string;
   versionNumber: number;
   status: string;
@@ -297,11 +359,16 @@ export interface GatePolicyVersionRow {
 
 export interface ReleaseCandidateRow {
   id: string;
+  tenantId?: string | null;
   projectId: string;
   environmentId: string | null;
   gatePolicyId: string;
   name: string;
   buildLabel: string;
+  buildId: string | null;
+  commitSha: string | null;
+  sourceRunIdsJson: string;
+  sourceLoadRunIdsJson: string;
   status: string;
   notes: string | null;
   createdAt: number;
@@ -310,6 +377,7 @@ export interface ReleaseCandidateRow {
 
 export interface GateResultRow {
   id: string;
+  tenantId?: string | null;
   releaseId: string;
   verdict: string;
   summary: string;
@@ -321,6 +389,7 @@ export interface GateResultRow {
 
 export interface WaiverRow {
   id: string;
+  tenantId?: string | null;
   releaseId: string;
   blockerKey: string;
   reason: string;
@@ -334,6 +403,7 @@ export interface WaiverRow {
 
 export interface ApprovalEventRow {
   id: string;
+  tenantId?: string | null;
   releaseId: string;
   waiverId: string | null;
   actor: string;
@@ -343,8 +413,38 @@ export interface ApprovalEventRow {
   createdAt: number;
 }
 
+export interface OpsAlertEventRow {
+  id: string;
+  tenantId?: string | null;
+  ruleKey: OpsAlertEvent["ruleKey"];
+  severity: OpsAlertEvent["severity"];
+  status: OpsAlertEvent["status"];
+  summary: string;
+  detailJson: string;
+  fingerprint: string;
+  firstTriggeredAt: number;
+  lastTriggeredAt: number;
+  lastDeliveredAt: number | null;
+  lastDeliveryError: string | null;
+}
+
 const toIso = (value: number | null): string | undefined =>
   value ? new Date(value).toISOString() : undefined;
+
+const parseStringArray = (value: string | null | undefined): string[] => {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string")
+      : [];
+  } catch {
+    return [];
+  }
+};
 
 const encryptedBundle = (
   ciphertext: string | null,
@@ -541,6 +641,40 @@ const classifyRunFailure = (
 
   return {};
 };
+
+export const mapTenantRow = (row: TenantRow): Tenant => ({
+  id: row.id,
+  name: row.name,
+  slug: row.slug,
+  createdAt: new Date(row.createdAt).toISOString(),
+  updatedAt: new Date(row.updatedAt).toISOString()
+});
+
+export const mapUserRow = (row: UserRow): User => ({
+  id: row.id,
+  email: row.email,
+  displayName: row.displayName ?? undefined,
+  createdAt: new Date(row.createdAt).toISOString(),
+  updatedAt: new Date(row.updatedAt).toISOString()
+});
+
+export const mapMembershipRow = (row: MembershipRow): Membership => ({
+  id: row.id,
+  tenantId: row.tenantId,
+  userId: row.userId,
+  role: row.role as Membership["role"],
+  createdAt: new Date(row.createdAt).toISOString(),
+  updatedAt: new Date(row.updatedAt).toISOString()
+});
+
+export const mapApiTokenRow = (row: ApiTokenRow): ApiToken => ({
+  id: row.id,
+  label: row.label,
+  scopes: parseStringArray(row.scopesJson) as TenantScope[],
+  lastUsedAt: toIso(row.lastUsedAt),
+  expiresAt: toIso(row.expiresAt),
+  createdAt: new Date(row.createdAt).toISOString()
+});
 
 export const mapProjectRow = (row: ProjectRow): Project => ({
   id: row.id,
@@ -832,6 +966,10 @@ export const mapReleaseCandidateRow = (
   gatePolicyId: row.gatePolicyId,
   name: row.name,
   buildLabel: row.buildLabel,
+  buildId: row.buildId ?? undefined,
+  commitSha: row.commitSha ?? undefined,
+  sourceRunIds: parseStringArray(row.sourceRunIdsJson),
+  sourceLoadRunIds: parseStringArray(row.sourceLoadRunIdsJson),
   status: row.status as ReleaseCandidate["status"],
   notes: row.notes ?? undefined,
   createdAt: new Date(row.createdAt).toISOString(),
@@ -871,4 +1009,19 @@ export const mapApprovalEventRow = (row: ApprovalEventRow): ApprovalEvent => ({
   action: row.action,
   detail: row.detail ?? undefined,
   createdAt: new Date(row.createdAt).toISOString()
+});
+
+export const mapOpsAlertEventRow = (row: OpsAlertEventRow): OpsAlertEvent => ({
+  id: row.id,
+  tenantId: row.tenantId ?? undefined,
+  ruleKey: row.ruleKey,
+  severity: row.severity,
+  status: row.status,
+  summary: row.summary,
+  detail: JSON.parse(row.detailJson) as Record<string, unknown>,
+  fingerprint: row.fingerprint,
+  firstTriggeredAt: new Date(row.firstTriggeredAt).toISOString(),
+  lastTriggeredAt: new Date(row.lastTriggeredAt).toISOString(),
+  lastDeliveredAt: toIso(row.lastDeliveredAt),
+  lastDeliveryError: row.lastDeliveryError ?? undefined
 });

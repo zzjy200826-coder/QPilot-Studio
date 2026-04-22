@@ -1,0 +1,31 @@
+{
+  "runtimeBaseUrl": "http://127.0.0.1:8880",
+  "release": {
+    "id": "tRV56_ZuU4IJTvjXcj3Zd",
+    "projectId": "proj-release-gates",
+    "environmentId": "env-release-staging",
+    "gatePolicyId": "gate-release-policy",
+    "name": "2026.04.21 pipeline candidate",
+    "buildLabel": "build-2026-04-21.pipeline",
+    "buildId": "gateway-web-pipeline-2191",
+    "commitSha": "4c91abe",
+    "sourceRunIds": [
+      "run-core-login-passed"
+    ],
+    "sourceLoadRunIds": [
+      "load-run-gateway-recovery"
+    ],
+    "status": "draft",
+    "notes": "Created from the release submit script during fixture verification.",
+    "createdAt": "2026-04-22T11:21:38.849Z",
+    "updatedAt": "2026-04-22T11:21:38.849Z"
+  },
+  "gate": {
+    "verdict": "ship",
+    "summary": "Release evidence is healthy across functional, benchmark, and load signals.",
+    "blockers": [],
+    "evaluatedAt": "2026-04-22T11:21:38.891Z"
+  },
+  "requiredVerdict": "watch",
+  "satisfiedRequiredVerdict": true
+}

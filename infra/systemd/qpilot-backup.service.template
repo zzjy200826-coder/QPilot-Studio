@@ -1,0 +1,12 @@
+[Unit]
+Description=QPilot scheduled shared backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User={{APP_USER}}
+WorkingDirectory={{APP_DIR}}
+EnvironmentFile={{RUNTIME_ENV_FILE}}
+ExecStart=/usr/bin/env pnpm --filter @qpilot/runtime run backup:create -- --kind scheduled --prune
+

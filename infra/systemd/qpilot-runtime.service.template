@@ -1,0 +1,19 @@
+[Unit]
+Description=QPilot Runtime
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User={{APP_USER}}
+Group={{APP_USER}}
+WorkingDirectory={{APP_DIR}}
+EnvironmentFile={{RUNTIME_ENV_FILE}}
+Environment=HOME={{DEPLOY_ROOT}}
+ExecStart=/usr/bin/env pnpm --filter @qpilot/runtime start
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

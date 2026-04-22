@@ -11,7 +11,9 @@
     "test": "vitest run --passWithNoTests",
     "test:e2e:console-review": "node --experimental-strip-types e2e/console-review.e2e.ts",
     "test:e2e:load-platform": "node --experimental-strip-types e2e/load-platform.e2e.ts",
-    "test:e2e": "pnpm run test:e2e:console-review && pnpm run test:e2e:load-platform"
+    "test:e2e:release-gates": "node --experimental-strip-types e2e/release-gates.e2e.ts",
+    "test:e2e:backups": "node --experimental-strip-types e2e/backups.e2e.ts",
+    "test:e2e": "pnpm run test:e2e:console-review && pnpm run test:e2e:load-platform && pnpm run test:e2e:release-gates && pnpm run test:e2e:backups"
   },
   "dependencies": {
     "@qpilot/shared": "workspace:*",

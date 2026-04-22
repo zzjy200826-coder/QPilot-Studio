@@ -5,6 +5,11 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../../runtime/node_modules/playwright/index.mjs";
 import { createClient } from "../../runtime/node_modules/@libsql/client/lib-esm/node.js";
+import {
+  backfillTenantIds,
+  defaultTenantId,
+  registerFixtureUser
+} from "./auth-helpers.ts";
 
 const currentFile = fileURLToPath(import.meta.url);
 const currentDir = dirname(currentFile);
@@ -38,6 +43,8 @@ const queuedRunId = "load-run-queued";
 const failedRunId = "load-run-regressed";
 const baselineRunId = "load-run-green";
 const now = Date.now();
+const fixtureEmail = "load.platform@example.test";
+const fixturePassword = "Password123!";
 
 interface ManagedProcess {
   close: () => Promise<void>;
@@ -881,7 +888,30 @@ const seedFixture = async (): Promise<void> => {
         activeWorkers: 2
       })
     ]);
+
+    await insertRows(client, "ops_alert_events", [
+      {
+        id: "ops-alert-load-backlog",
+        tenant_id: defaultTenantId,
+        rule_key: "load_queue_backlog_high",
+        severity: "warning",
+        status: "active",
+        summary: "Queue backlog exceeded threshold during fixture validation.",
+        detail_json: JSON.stringify({
+          backlog: 8,
+          threshold: 5,
+          waiting: 5,
+          delayed: 3
+        }),
+        fingerprint: `load_queue_backlog_high:${defaultTenantId}`,
+        first_triggered_at: now - 80_000,
+        last_triggered_at: now - 20_000,
+        last_delivered_at: now - 10_000,
+        last_delivery_error: null
+      }
+    ]);
   } finally {
+    await backfillTenantIds(client);
     await client.close();
   }
 };
@@ -950,11 +980,15 @@ const run = async (): Promise<void> => {
       locale: "en-US",
       viewport: { width: 1440, height: 1200 }
     });
-    await context.addInitScript(() => {
-      window.localStorage.setItem("qpilot.language.v1", "en");
-    });
     const page = await context.newPage();
 
+    await registerFixtureUser(page, {
+      email: fixtureEmail,
+      password: fixturePassword,
+      displayName: "Load Platform Owner",
+      tenantName: "Load Platform Workspace",
+      redirectPath: "/projects"
+    });
     await page.goto("/platform/control", { waitUntil: "domcontentloaded" });
     console.log("[load-platform] opened control tower");
     await page.getByRole("button", { name: "Dense" }).click();
@@ -964,6 +998,19 @@ const run = async (): Promise<void> => {
     await expectText(page, "timeout 15000 ms");
     await page.screenshot({
       path: resolve(screenshotRoot, "01-control-tower-queue.png"),
+      fullPage: true
+    });
+
+    await page.goto("/platform/ops", { waitUntil: "domcontentloaded" });
+    console.log("[load-platform] opened ops summary");
+    await expectText(page, "Runtime readiness");
+    await expectText(page, "Backup health");
+    await expectText(page, "Dependencies");
+    await expectText(page, "Recent alerts");
+    await expectText(page, "Scheduler and storage summary");
+    await expectText(page, "Queue backlog exceeded threshold during fixture validation.");
+    await page.screenshot({
+      path: resolve(screenshotRoot, "02-ops-summary.png"),
       fullPage: true
     });
 
@@ -989,10 +1036,9 @@ const run = async (): Promise<void> => {
     await expectText(page, "Record approval");
     await page.getByRole("button", { name: "Close" }).first().click();
 
-    await page.goto("/platform/load", { waitUntil: "domcontentloaded" });
+    await page.goto("/platform/load?studioMode=run", { waitUntil: "domcontentloaded" });
     console.log("[load-platform] opened load studio");
     await expectText(page, "Load Studio");
-    await page.getByRole("button", { name: "Runs" }).first().click();
     await expectText(page, "Profile inventory");
     await expectText(page, "Gateway distributed gate");
     await page.getByRole("button", { name: "New profile" }).first().click();
@@ -1005,7 +1051,7 @@ const run = async (): Promise<void> => {
     await expectText(page, "Headers");
     await page.getByRole("button", { name: "Close" }).first().click();
     await page.screenshot({
-      path: resolve(screenshotRoot, "02-load-studio.png"),
+      path: resolve(screenshotRoot, "03-load-studio.png"),
       fullPage: true
     });
 
@@ -1019,14 +1065,33 @@ const run = async (): Promise<void> => {
     await expectText(page, "Live run console");
     await expectText(page, "Baseline and candidate");
     await page.screenshot({
-      path: resolve(screenshotRoot, "03-queued-detail.png"),
+      path: resolve(screenshotRoot, "04-queued-detail.png"),
       fullPage: true
     });
 
     await page.getByRole("button", { name: "Cancel queued run" }).click();
     await expectText(page, "stopped");
     await page.screenshot({
-      path: resolve(screenshotRoot, "04-queued-cancelled.png"),
+      path: resolve(screenshotRoot, "05-queued-cancelled.png"),
+      fullPage: true
+    });
+
+    await page.evaluate(() => {
+      window.localStorage.setItem("qpilot.language.v1", "zh-CN");
+    });
+    await page.goto("/platform/ops", { waitUntil: "domcontentloaded" });
+    await expectText(page, "运行就绪");
+    await expectText(page, "依赖检查");
+    await expectText(page, "最近告警");
+    const zhBody = (await page.locator("body").textContent()) ?? "";
+    if (!zhBody.includes("Backup health") && !zhBody.includes("备份健康")) {
+      throw new Error("Ops summary should render the backup health section in Chinese mode.");
+    }
+    if (zhBody.includes("�")) {
+      throw new Error("Ops summary should not render replacement-character mojibake in Chinese mode.");
+    }
+    await page.screenshot({
+      path: resolve(screenshotRoot, "06-ops-summary-zh.png"),
       fullPage: true
     });
 
@@ -1041,12 +1106,16 @@ const run = async (): Promise<void> => {
           queuedRunId,
           failedRunId,
           baselineRunId,
+          opsAlertId: "ops-alert-load-backlog",
+          authEmail: fixtureEmail,
           retriedRunId: null,
           screenshots: {
             controlTower: resolve(screenshotRoot, "01-control-tower-queue.png"),
-            loadStudio: resolve(screenshotRoot, "02-load-studio.png"),
-            queuedDetail: resolve(screenshotRoot, "03-queued-detail.png"),
-            queuedCancelled: resolve(screenshotRoot, "04-queued-cancelled.png")
+            opsSummary: resolve(screenshotRoot, "02-ops-summary.png"),
+            loadStudio: resolve(screenshotRoot, "03-load-studio.png"),
+            queuedDetail: resolve(screenshotRoot, "04-queued-detail.png"),
+            queuedCancelled: resolve(screenshotRoot, "05-queued-cancelled.png"),
+            opsSummaryZh: resolve(screenshotRoot, "06-ops-summary-zh.png")
           }
         },
         null,

@@ -1,0 +1,48 @@
+{
+  "id": "restore-running-fixture",
+  "type": "restore",
+  "status": "running",
+  "snapshotId": "20260422T030000Z-manual-restore",
+  "snapshotKind": "manual",
+  "triggeredBy": "fixture-owner",
+  "message": "Running platform smoke verification after auto rollback...",
+  "detail": {
+    "phase": "rollback",
+    "phaseUpdatedAt": "2026-04-22T11:22:13.232Z",
+    "failureReason": "restore_verification_failed",
+    "rollbackSnapshotId": "20260422T025500Z-pre_restore-fixture",
+    "verification": {
+      "ok": false,
+      "checkedAt": "2026-04-22T11:22:13.232Z",
+      "baseUrl": "https://qpilot.example.test",
+      "checks": [
+        {
+          "key": "ready",
+          "label": "GET /health/ready",
+          "state": "failed",
+          "status": 503,
+          "detail": "Readiness probe returned HTTP 503.",
+          "checkedAt": "2026-04-22T11:22:13.232Z"
+        }
+      ]
+    },
+    "rollbackVerification": {
+      "ok": false,
+      "checkedAt": "2026-04-22T11:22:13.232Z",
+      "baseUrl": "https://qpilot.example.test",
+      "checks": [
+        {
+          "key": "ready",
+          "label": "GET /health/ready",
+          "state": "failed",
+          "status": 503,
+          "detail": "Rollback readiness probe returned HTTP 503.",
+          "checkedAt": "2026-04-22T11:22:13.232Z"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-04-22T11:22:13.232Z",
+  "updatedAt": "2026-04-22T11:22:13.232Z",
+  "startedAt": "2026-04-22T11:22:13.232Z"
+}

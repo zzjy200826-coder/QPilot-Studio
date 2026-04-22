@@ -16,6 +16,7 @@ import {
 import { mapGatePolicyRow, mapLoadProfileRow, type GatePolicyRow, type LoadProfileRow } from "../utils/mappers.js";
 
 const tempDirs: string[] = [];
+const defaultTenantId = "tenant-default";
 
 afterEach(() => {
   while (tempDirs.length > 0) {
@@ -47,6 +48,7 @@ describe("platform versioning", () => {
       try {
         await db.insert(projectsTable).values({
           id: "project-1",
+          tenantId: defaultTenantId,
           name: "Versioning Test",
           baseUrl: "https://api.example.test",
           usernameCipher: null,
@@ -61,6 +63,7 @@ describe("platform versioning", () => {
 
         await db.insert(loadProfilesTable).values({
           id: "profile-1",
+          tenantId: defaultTenantId,
           projectId: "project-1",
           name: "Checkout steady",
           scenarioLabel: "Checkout gate",
@@ -176,6 +179,7 @@ describe("platform versioning", () => {
       try {
         await db.insert(projectsTable).values({
           id: "project-2",
+          tenantId: defaultTenantId,
           name: "Gate Policy Test",
           baseUrl: "https://release.example.test",
           usernameCipher: null,
@@ -190,6 +194,7 @@ describe("platform versioning", () => {
 
         await db.insert(gatePoliciesTable).values({
           id: "policy-1",
+          tenantId: defaultTenantId,
           projectId: "project-2",
           name: "release gate",
           requiredFunctionalFlowsJson: JSON.stringify(["login"]),

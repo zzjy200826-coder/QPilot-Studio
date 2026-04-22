@@ -1,8 +1,8 @@
-# QPilot Studio (MVP)
+# QPilot Studio
 
-Local-first AI QA agent platform for individual developers.
+Local-first AI QA and testing platform for individual developers and small teams.
 
-It opens browsers with Playwright, collects page context, asks an OpenAI-compatible LLM for structured test actions, executes actions, verifies outcomes, persists steps/test-cases, and generates HTML/Excel reports.
+It opens browsers with Playwright, collects page context, asks an OpenAI-compatible LLM for structured test actions, executes actions, verifies outcomes, persists steps and test cases, and generates HTML and Excel reports. The current codebase also includes a growing platform layer for load testing, environment management, release gating, tenant-scoped auth, and ops visibility.
 
 ## Stack
 
@@ -19,13 +19,19 @@ It opens browsers with Playwright, collects page context, asks an OpenAI-compati
 ```txt
 apps/
   desktop/
-  web/
   runtime/
+  web/
+infra/
+  deploy/
+  nginx/
+  prometheus/
+  systemd/
 packages/
-  shared/
   ai-gateway/
   prompt-packs/
   report-core/
+  shared/
+auto_find_jobs/
 ```
 
 ## Quick Start
@@ -66,12 +72,36 @@ pnpm dev:desktop
 - Health: `GET http://localhost:8787/health`
 - Desktop shell: Electron app hosting the web console and live browser feed
 
-## Build & Test
+## Build, Lint, And Test
 
 ```bash
 pnpm -r build
+pnpm -r lint
 pnpm -r test
 ```
+
+Web fixture E2E:
+
+```bash
+pnpm --filter @qpilot/web run test:e2e
+```
+
+## Single-Host Deployment
+
+For a public Ubuntu host, the repo now includes SSH deployment automation:
+
+```bash
+pnpm deploy:bootstrap -- --host <host> --ssh-user <user> --domain <domain> --repo-url <repo> --ref main --cert-email <email> --runtime-env-source <local-env-file>
+pnpm deploy:update -- --host <host> --ssh-user <user> --ref main --domain <domain> --runtime-env-source <local-env-file>
+pnpm deploy:smoke -- --base-url https://<domain> --metrics-token <METRICS_BEARER_TOKEN>
+```
+
+Deployment docs:
+
+- `docs/DEPLOYMENT-101.zh-CN.md`
+- `docs/DEPLOY-RUNBOOK.zh-CN.md`
+- `docs/OBSERVABILITY-101.zh-CN.md`
+- `docs/BACKUP-RESTORE-101.zh-CN.md`
 
 ## Runtime Env
 
@@ -85,34 +115,43 @@ See `.env.example`. Key fields:
 - `ARTIFACTS_DIR`
 - `REPORTS_DIR`
 - `SESSIONS_DIR`
+- `PLATFORM_METRICS_ENABLED`
+- `METRICS_BEARER_TOKEN`
+- `BACKUP_S3_BUCKET`
+- `BACKUP_ENCRYPTION_KEY`
 - `OPENAI_TIMEOUT_MS`
 
-## MVP Features Implemented
+## Current Capabilities
 
-- Project management (create/list)
-- Run history page (`/runs`) with project filter and live status updates
+### Functional lane
+
+- Project management and credential storage
+- Run history with live status updates
 - Create run with URL + username/password + mode
 - Playwright navigation and page snapshot collection
-- Independent interactive element collector module
-- LLM structured JSON planning with zod validation and one retry
+- Structured LLM planning with zod validation and retry
 - Action execution (`click/input/select/navigate/wait`)
-- Action hardening with overlay dismissal and visible-element fallback
-- Security challenge detection (captcha / human verification / login walls)
-- Manual takeover flow for challenge pages in visible-browser runs
+- Overlay dismissal and visible-element fallback
+- Security challenge detection and manual takeover flow
 - Session reuse with named storage-state profiles
-- Run video recording stored with artifacts and embedded in reports
-- High-risk action blocking (`delete/payment/order submission`)
-- Verification (`urlChanged` + expected text checks)
-- Step/Run/TestCase persistence (SQLite + Drizzle)
-- Login abnormal-then-normal 6-scenario strategy
-- Realtime run events via SSE
-- Realtime browser video over WebSocket (Chromium screencast with screenshot fallback)
-- HTML + Excel report generation
-- Web console pages:
-  - Projects
-  - Create Run
-  - Run live detail (left config+LLM / center screenshot / right steps+cases)
-  - Report page
+- Video capture, HTML report, and Excel report generation
+- Step, run, and testcase persistence with replay and compare support
+- Benchmark scenarios, scenario history, and comparison views
+- Case extraction plus template replay and repair draft workflows
+- Realtime SSE events and WebSocket live browser stream
+
+### Platform lane
+
+- Control Tower overview
+- Load Studio with load profiles and load run history
+- Environment registry and injector pool management
+- Release Gate Center with gate policies, waivers, and approvals
+- Release candidate aggregation across functional and load signals
+- Release detail pages with approvals, waivers, and evidence deep links
+- Owner-only ops summary page with readiness, dependency, queue, and alert snapshots
+- Owner-only shared-directory backup and restore control plane with S3-compatible snapshots
+- Global maintenance page that activates automatically during restore windows
+- Desktop cockpit with live control actions for the active run
 
 ## Seed Prompts
 
@@ -120,9 +159,15 @@ See `.env.example`. Key fields:
 - `packages/prompt-packs/src/seeds/login-page.md`
 - `packages/prompt-packs/src/seeds/admin-console.md`
 
-## API Overview (MVP)
+## API Overview
 
 - `GET /health`
+- `GET /health/ready`
+- `GET /metrics`
+- `GET /api/auth/me`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
 - `GET /api/projects`
 - `POST /api/projects`
 - `PATCH /api/projects/:projectId/credentials`
@@ -135,17 +180,29 @@ See `.env.example`. Key fields:
 - `GET /api/runs/:runId/stream` (SSE)
 - `GET /api/runs/:runId/live` (WebSocket live frame stream)
 - `POST /api/runs/:runId/pause`
-- `POST /api/runs/:runId/resume` (continue after manual takeover)
+- `POST /api/runs/:runId/resume`
 - `POST /api/runs/:runId/abort`
-- `POST /api/runs/:runId/bring-to-front` (focus the visible browser window/tab)
+- `POST /api/runs/:runId/bring-to-front`
 - `GET /api/reports/:runId`
+- `GET /api/platform/control-tower`
+- `GET /api/platform/ops/summary`
+- `GET /api/platform/ops/backups/config`
+- `GET /api/platform/ops/backups/snapshots`
+- `POST /api/platform/ops/backups/run`
+- `POST /api/platform/ops/backups/preflight`
+- `POST /api/platform/ops/backups/restore`
+- `GET /api/platform/load/profiles`
+- `GET /api/platform/load/runs`
+- `GET /api/platform/environments`
+- `GET /api/platform/releases`
+- `GET /api/platform/releases/:releaseId/gates`
 
 ## Notes
 
 - Credentials are encrypted with AES-256-GCM before storing.
-- Runtime supports only one active run at a time.
-- If `OPENAI_API_KEY` is missing, server still starts, but run execution fails with a clear message.
-- If you enable visible browser + manual takeover, captcha/login walls can be solved in the live Chromium window and resumed from the console.
-- Finished runs now retain a recorded browser video under the run artifacts and expose it on the report page.
-- Desktop mode now shows a persistent control dock with pause, resume, abort, and bring-to-front actions for the active run.
-- The web console now includes a global `English / 简体中文` language switcher, and new runs propagate that language into planner output and exported reports.
+- Runtime currently supports only one active functional run at a time.
+- If `OPENAI_API_KEY` is missing, the server still starts, but run execution fails with a clear message.
+- If you enable visible browser plus manual takeover, captcha and login walls can be solved in the live Chromium window and resumed from the console.
+- Finished runs retain a recorded browser video under the run artifacts and expose it on the report page.
+- Desktop mode shows a persistent control dock with pause, resume, abort, and bring-to-front actions for the active run.
+- The web console includes a global `English / 简体中文` language switcher, and new runs propagate that language into planner output and exported reports.

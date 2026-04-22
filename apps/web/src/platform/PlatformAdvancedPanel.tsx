@@ -21,13 +21,13 @@ export const PlatformAdvancedPanel = ({
     <button
       type="button"
       onClick={onToggle}
-      className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
+      className="console-button-secondary text-sm"
     >
       {open ? hideLabel ?? "Hide advanced" : label ?? title ?? "Advanced"}
     </button>
 
     {open ? (
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="console-panel-subtle p-4">
         {title || description ? (
           <div className="mb-3">
             {title ? <p className="text-sm font-medium text-slate-900">{title}</p> : null}

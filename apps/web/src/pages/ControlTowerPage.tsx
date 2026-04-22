@@ -46,12 +46,16 @@ const MetricCard = ({
   dense: boolean;
 }) => (
   <article
-    className={`rounded-2xl border border-slate-200 bg-slate-50 ${
-      dense ? "px-3 py-2.5" : "px-4 py-3"
+    className={`console-kpi ${
+      dense ? "px-3 py-3" : "px-4 py-4"
     }`}
   >
-    <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-    <p className={`font-semibold text-slate-950 ${dense ? "mt-1 text-xl" : "mt-2 text-2xl"}`}>
+    <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">{label}</p>
+    <p
+      className={`console-kpi-value font-semibold text-slate-950 ${
+        dense ? "mt-1 text-xl" : "mt-2 text-[1.65rem]"
+      }`}
+    >
       {value}
     </p>
   </article>
@@ -130,17 +134,15 @@ export const ControlTowerPage = () => {
     };
   }, [queue]);
 
-  const panelClass = `rounded-[28px] border border-slate-200 bg-white ${isDense ? "p-4" : "p-5"}`;
-  const sectionLabelClass = "text-[11px] uppercase tracking-[0.28em] text-slate-400";
+  const panelClass = `console-panel ${isDense ? "p-4" : "p-5"}`;
+  const sectionLabelClass = "font-data text-[11px] uppercase tracking-[0.28em] text-slate-400";
   const heroPadding = isDense ? "p-5" : "p-6";
   const pageGap = isDense ? "space-y-4" : "space-y-6";
   const tableCellClass = isDense ? "py-3 pr-4" : "py-4 pr-4";
 
   return (
     <section className={pageGap}>
-      <div
-        className={`rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,#bfdbfe,transparent_35%),linear-gradient(135deg,#ffffff,#f8fafc)] shadow-sm ${heroPadding}`}
-      >
+      <div className={`console-masthead ${heroPadding}`}>
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-4xl">
             <div className="flex flex-wrap items-center gap-2">
@@ -153,12 +155,18 @@ export const ControlTowerPage = () => {
                 </span>
               ) : null}
             </div>
-            <h2 className={`font-semibold tracking-tight text-slate-950 ${isDense ? "mt-3 text-2xl" : "mt-4 text-3xl"}`}>
+            <h2 className={`font-semibold tracking-tight text-slate-950 ${isDense ? "mt-3 text-[2rem]" : "mt-4 text-[2.6rem]"}`}>
               {pick("Release, queue, and infra status.", "发布、队列与基础设施状态。")}
             </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">
+              {pick(
+                "See release posture, queue pressure, recent load evidence, and dependency health before drilling into detail pages.",
+                "先看清发布态势、队列压力、最近压测证据和依赖健康，再决定深入到哪个详情页。"
+              )}
+            </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <select
-                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
+                className="console-input min-w-[220px] rounded-full px-4 py-2 text-sm"
                 value={projectId}
                 onChange={(event) => updateProject(event.target.value)}
               >
@@ -170,13 +178,13 @@ export const ControlTowerPage = () => {
               </select>
               <Link
                 to="/platform/load"
-                className="rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+                className="console-button-primary text-sm"
               >
                 {pick("Open Load Studio", "打开压测台")}
               </Link>
               <Link
                 to="/platform/gates"
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+                className="console-button-secondary text-sm"
               >
                 {pick("Open Gate Center", "打开门禁台")}
               </Link>
@@ -184,14 +192,14 @@ export const ControlTowerPage = () => {
                 href={`${api.runtimeBase}/metrics`}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+                className="console-button-subtle text-sm"
               >
                 /metrics
               </a>
             </div>
           </div>
 
-          <aside className="grid gap-3 rounded-[28px] border border-slate-200 bg-white/90 p-5 sm:grid-cols-2">
+          <aside className="console-panel-subtle grid gap-3 p-4 sm:grid-cols-2 xl:min-w-[420px]">
             <MetricCard
               label={pick("Active releases", "活动发布")}
               value={summary?.activeReleaseCount ?? 0}
@@ -423,6 +431,30 @@ export const ControlTowerPage = () => {
                       <div>
                         <p className="font-medium text-slate-900">{release.name}</p>
                         <p className="mt-1 text-xs text-slate-500">{release.buildLabel}</p>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                          {release.buildId ? (
+                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
+                              {`Build ID ${release.buildId}`}
+                            </span>
+                          ) : null}
+                          {release.commitSha ? (
+                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
+                              {`Commit ${release.commitSha.slice(0, 7)}`}
+                            </span>
+                          ) : null}
+                          <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
+                            {pick(
+                              `${release.sourceRunIds.length} functional bindings`,
+                              `\u529f\u80fd\u7ed1\u5b9a ${release.sourceRunIds.length}`
+                            )}
+                          </span>
+                          <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1">
+                            {pick(
+                              `${release.sourceLoadRunIds.length} load bindings`,
+                              `\u538b\u6d4b\u7ed1\u5b9a ${release.sourceLoadRunIds.length}`
+                            )}
+                          </span>
+                        </div>
                       </div>
                       <span
                         className={`rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.18em] ${
@@ -431,6 +463,14 @@ export const ControlTowerPage = () => {
                       >
                         {release.status}
                       </span>
+                    </div>
+                    <div className="mt-3">
+                      <Link
+                        to={`/platform/releases/${release.id}`}
+                        className="console-button-secondary px-3 py-1.5 text-xs"
+                      >
+                        {pick("Open detail", "打开详情")}
+                      </Link>
                     </div>
                   </div>
                 ))

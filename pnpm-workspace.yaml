@@ -1,4 +1,5 @@
 packages:
   - "apps/*"
+  - "infra/deploy"
   - "packages/*"
   - "auto_find_jobs"

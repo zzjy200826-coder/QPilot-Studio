@@ -128,13 +128,20 @@ export const EnvironmentPage = () => {
     }
   });
 
+  const projects = projectsQuery.data ?? [];
   const environments = registryQuery.data?.environments ?? [];
   const injectorPools = registryQuery.data?.injectorPools ?? [];
   const injectorWorkers = registryQuery.data?.injectorWorkers ?? [];
   const topology = topologyQuery.data;
+  const hasProjects = projects.length > 0;
+  const projectSelectPlaceholder = projectsQuery.isLoading
+    ? pick("Loading projects...", "正在加载项目...")
+    : hasProjects
+      ? pick("Select a project", "选择项目")
+      : pick("No project yet", "还没有项目");
   const selectedProject = useMemo(
-    () => projectsQuery.data?.find((project) => project.id === projectId),
-    [projectId, projectsQuery.data]
+    () => projects.find((project) => project.id === projectId),
+    [projectId, projects]
   );
 
   const formErrors = [
@@ -143,7 +150,7 @@ export const EnvironmentPage = () => {
     createPoolMutation.error instanceof Error ? createPoolMutation.error.message : null
   ].filter((value): value is string => Boolean(value));
 
-  const inputClass = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm";
+  const inputClass = "console-input text-sm";
   const panelClass = `rounded-[28px] border border-slate-200 bg-white ${isDense ? "p-4" : "p-5"}`;
   const pageGap = isDense ? "gap-4" : "gap-6";
   const tableCellClass = isDense ? "py-3 pr-4" : "py-4 pr-4";
@@ -213,11 +220,18 @@ export const EnvironmentPage = () => {
       actions={
         <>
           <select
-            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
-            value={projectId}
+            className={`console-input min-w-[220px] rounded-full px-4 py-2 text-sm ${
+              !hasProjects ? "text-slate-400" : ""
+            }`}
+            value={hasProjects ? projectId : ""}
             onChange={(event) => setProject(event.target.value)}
+            disabled={!hasProjects || projectsQuery.isLoading}
+            aria-label={pick("Project filter", "项目筛选")}
           >
-            {(projectsQuery.data ?? []).map((project) => (
+            <option value="" disabled={hasProjects}>
+              {projectSelectPlaceholder}
+            </option>
+            {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}
               </option>
@@ -225,21 +239,28 @@ export const EnvironmentPage = () => {
           </select>
           <Link
             to="/platform/load"
-            className="rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+            className="console-button-secondary text-sm"
           >
             {pick("Open Load Studio", "打开压测台")}
           </Link>
+          {!hasProjects ? (
+            <Link to="/projects" className="console-button-primary text-sm">
+              {pick("Create project", "创建项目")}
+            </Link>
+          ) : null}
           <button
             type="button"
             onClick={() => setDrawer("environment")}
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+            className="console-button-primary text-sm"
+            disabled={!hasProjects}
           >
             {pick("Create environment", "创建环境")}
           </button>
           <button
             type="button"
             onClick={() => setDrawer("pool")}
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+            className="console-button-secondary text-sm"
+            disabled={!hasProjects}
           >
             {pick("Create injector pool", "创建注入池")}
           </button>
@@ -254,6 +275,21 @@ export const EnvironmentPage = () => {
       }
     >
       <PlatformErrorBanner messages={formErrors} />
+      {!hasProjects && !projectsQuery.isLoading ? (
+        <div className="console-panel-subtle px-4 py-4 text-sm text-slate-600">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>
+              {pick(
+                "Create a project first, then bind environments, topology, and injector pools to it.",
+                "请先创建项目，再把环境、拓扑和注入池绑定到这个项目下。"
+              )}
+            </p>
+            <Link to="/projects" className="console-button-primary text-sm">
+              {pick("Open projects", "打开项目")}
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       <div className={`grid xl:grid-cols-[minmax(0,1fr)_380px] ${pageGap}`}>
         <div className={isDense ? "space-y-4" : "space-y-6"}>

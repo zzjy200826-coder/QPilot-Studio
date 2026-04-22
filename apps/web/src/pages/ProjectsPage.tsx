@@ -152,7 +152,7 @@ export const ProjectsPage = () => {
   return (
     <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
       <aside className="space-y-4">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5">
+        <section className="console-panel p-5">
           <p className="text-[11px] uppercase tracking-[0.32em] text-slate-400">
             {pick("Quick Start", "快速开始")}
           </p>
@@ -167,7 +167,7 @@ export const ProjectsPage = () => {
           </p>
 
           <div className="mt-4 grid gap-3">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="console-panel-subtle px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                 {pick("Step 1", "第 1 步")}
               </p>
@@ -175,7 +175,7 @@ export const ProjectsPage = () => {
                 {pick("Create a reusable project entry", "先创建一个可复用项目")}
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="console-panel-subtle px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                 {pick("Step 2", "第 2 步")}
               </p>
@@ -183,7 +183,7 @@ export const ProjectsPage = () => {
                 {pick("Start a run when you're ready to test", "准备好测试时再开始运行")}
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="console-panel-subtle px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                 {pick("Only if needed", "需要时")}
               </p>
@@ -194,7 +194,7 @@ export const ProjectsPage = () => {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5">
+        <section className="console-panel p-5">
           <h2 className="text-lg font-semibold text-slate-900">
             {pick("Create Project", "创建项目")}
           </h2>
@@ -218,28 +218,28 @@ export const ProjectsPage = () => {
             }}
           >
             <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="console-input text-sm"
               placeholder={pick("Project name", "项目名称")}
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
             />
             <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="console-input text-sm"
               placeholder={pick("Base URL", "基础 URL")}
               value={baseUrl}
               onChange={(event) => setBaseUrl(event.target.value)}
               required
             />
             <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="console-input text-sm"
               placeholder={pick("Username (optional)", "用户名（可选）")}
               value={username}
               onChange={(event) => setUsername(event.target.value)}
             />
             <input
               type="password"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="console-input text-sm"
               placeholder={pick("Password (optional)", "密码（可选）")}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -247,7 +247,7 @@ export const ProjectsPage = () => {
             <button
               type="submit"
               disabled={createProjectMutation.isPending}
-              className="w-full rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+              className="console-button-primary w-full justify-center text-sm disabled:opacity-60"
             >
               {createProjectMutation.isPending
                 ? pick("Creating...", "创建中...")
@@ -281,7 +281,7 @@ export const ProjectsPage = () => {
           </div>
         ) : null}
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5">
+        <section className="console-panel p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-[0.32em] text-slate-400">
@@ -299,32 +299,32 @@ export const ProjectsPage = () => {
             </div>
             <Link
               to="/runs/new"
-              className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+              className="console-button-secondary text-sm"
             >
               {pick("Start New Run", "开始新运行")}
             </Link>
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="console-kpi px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                 {pick("Projects", "项目数")}
               </p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{projects.length}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="console-kpi px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                 {pick("Running", "运行中")}
               </p>
               <p className="mt-2 text-2xl font-semibold text-sky-700">{runningCount}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="console-kpi px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                 {pick("Passed", "已通过")}
               </p>
               <p className="mt-2 text-2xl font-semibold text-emerald-700">{passedCount}</p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="console-kpi px-4 py-3">
               <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                 {pick("Active Projects", "有运行记录的项目")}
               </p>
@@ -332,7 +332,7 @@ export const ProjectsPage = () => {
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          <div className="console-panel-subtle mt-4 px-4 py-3 text-sm text-slate-600">
             {latestRun
               ? pick(
                   `Most recent run: ${latestRun.goal} · ${statusLabel(latestRun.status, pick)} · ${formatRelativeTime(latestRun.startedAt ?? latestRun.createdAt, pick("just now", "刚刚"))}`,
@@ -345,7 +345,7 @@ export const ProjectsPage = () => {
           </div>
         </section>
 
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5">
+        <section className="console-panel p-5">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">

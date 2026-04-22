@@ -622,6 +622,15 @@ export class RunOrchestrator {
     this.deps.sseHub.publish(payload);
   }
 
+  private async resolveRunTenantId(runId: string): Promise<string> {
+    const runRows = (await this.deps.db
+      .select({ tenantId: runsTable.tenantId })
+      .from(runsTable)
+      .where(eq(runsTable.id, runId))
+      .limit(1)) as Array<{ tenantId?: string | null }>;
+    return runRows[0]?.tenantId ?? "tenant-default";
+  }
+
   private emitRunStatus(runId: string, data: RunStatusEventData): void {
     const current = this.runSnapshots.get(runId);
     this.runSnapshots.set(runId, {
@@ -2048,8 +2057,10 @@ export class RunOrchestrator {
       }
 
       const status = scenarioLastResult?.passed ? "passed" : "failed";
+      const tenantId = await this.resolveRunTenantId(input.runId);
       const testCaseRow = {
         id: nanoid(),
+        tenantId,
         runId: input.runId,
         module: "Login Authentication",
         title: scenario.name,
@@ -2381,6 +2392,7 @@ export class RunOrchestrator {
 
     const stepRow = {
       id: nanoid(),
+      tenantId: await this.resolveRunTenantId(input.runId),
       runId: input.runId,
       stepIndex: input.stepIndex,
       pageUrl: snapshot.url,
@@ -2454,6 +2466,7 @@ export class RunOrchestrator {
 
     const testCaseRow = {
       id: nanoid(),
+      tenantId: await this.resolveRunTenantId(runId),
       runId,
       module: candidate.module ?? "General",
       title: nextTitle,
@@ -2507,6 +2520,7 @@ export class RunOrchestrator {
     }
 
     const now = Date.now();
+    const tenantId = await this.resolveRunTenantId(runId);
     const executionMode = this.getExecutionMode(runId, runConfig.executionMode);
     const buildRow = (
       type: "ui" | "api" | "hybrid",
@@ -2515,6 +2529,7 @@ export class RunOrchestrator {
       payload: unknown
     ) => ({
       id: nanoid(),
+      tenantId,
       projectId,
       runId,
       type,
@@ -2814,6 +2829,7 @@ export class RunOrchestrator {
       .insert(reportsTable)
       .values({
         runId,
+        tenantId: runRow.tenantId ?? "tenant-default",
         htmlPath: htmlPathPublic,
         xlsxPath: xlsxPathPublic,
         createdAt: Date.now()

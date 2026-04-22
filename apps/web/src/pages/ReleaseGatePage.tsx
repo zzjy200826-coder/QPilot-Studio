@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { LoadRun, Run } from "@qpilot/shared";
 import { Link, useSearchParams } from "react-router-dom";
 import { useI18n } from "../i18n/I18nProvider";
 import { api } from "../lib/api";
@@ -28,6 +29,43 @@ const verdictTone: Record<string, "success" | "warning" | "danger" | "neutral" |
   waived: "violet"
 };
 
+const parseBindingIds = (value: string): string[] =>
+  Array.from(
+    new Set(
+      value
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  );
+
+const serializeBindingIds = (ids: string[]): string => ids.join("\n");
+
+const upsertBindingId = (currentValue: string, id: string): string => {
+  const next = parseBindingIds(currentValue);
+  if (!next.includes(id)) {
+    next.push(id);
+  }
+  return serializeBindingIds(next);
+};
+
+const removeBindingId = (currentValue: string, id: string): string =>
+  serializeBindingIds(parseBindingIds(currentValue).filter((entry) => entry !== id));
+
+const runTone = (status: Run["status"]): "success" | "warning" | "danger" | "neutral" => {
+  switch (status) {
+    case "passed":
+      return "success";
+    case "running":
+      return "warning";
+    case "failed":
+    case "stopped":
+      return "danger";
+    default:
+      return "neutral";
+  }
+};
+
 export const ReleaseGatePage = () => {
   const { formatDateTime, formatRelativeTime, pick } = useI18n();
   const { isDense } = usePlatformDensity();
@@ -38,7 +76,12 @@ export const ReleaseGatePage = () => {
   const [policyName, setPolicyName] = useState("release gate");
   const [requiredFlows, setRequiredFlows] = useState("核心登录\n核心支付");
   const [releaseName, setReleaseName] = useState("2026.04.18 candidate");
-  const [buildLabel, setBuildLabel] = useState("build-2026-04-18.1");
+  const [buildLabel, setBuildLabel] = useState("");
+  const [buildId, setBuildId] = useState("");
+  const [commitSha, setCommitSha] = useState("");
+  const [sourceRunIds, setSourceRunIds] = useState("");
+  const [sourceLoadRunIds, setSourceLoadRunIds] = useState("");
+  const [releaseNotes, setReleaseNotes] = useState("");
   const [waiverReason, setWaiverReason] = useState("Temporary watch while mitigation is in progress.");
   const [waiverRequestedBy, setWaiverRequestedBy] = useState("release-manager");
   const [approvalActor, setApprovalActor] = useState("qa-lead");
@@ -77,6 +120,27 @@ export const ReleaseGatePage = () => {
   const releasesQuery = useQuery({
     queryKey: ["platform", "releases", projectId || "all"],
     queryFn: () => api.listReleases(projectId || undefined)
+  });
+  const recentRunsQuery = useQuery({
+    queryKey: ["runs", projectId || "all"],
+    queryFn: () => api.listRuns(projectId || undefined),
+    enabled: Boolean(projectId)
+  });
+  const recentLoadRunsQuery = useQuery({
+    queryKey: [
+      "platform",
+      "load-runs",
+      "binding-candidates",
+      projectId || "all",
+      selectedEnvironmentId || "all"
+    ],
+    queryFn: () =>
+      api.listPlatformLoadRuns({
+        projectId: projectId || undefined,
+        environmentId: selectedEnvironmentId || undefined,
+        limit: 8
+      }),
+    enabled: Boolean(projectId)
   });
   const releaseDetailQuery = useQuery({
     queryKey: ["platform", "release-gates", selectedReleaseId],
@@ -153,6 +217,21 @@ export const ReleaseGatePage = () => {
     () => projectsQuery.data?.find((project) => project.id === projectId),
     [projectId, projectsQuery.data]
   );
+  const parsedSourceRunIds = useMemo(() => parseBindingIds(sourceRunIds), [sourceRunIds]);
+  const parsedSourceLoadRunIds = useMemo(
+    () => parseBindingIds(sourceLoadRunIds),
+    [sourceLoadRunIds]
+  );
+  const recentRuns = useMemo(() => (recentRunsQuery.data ?? []).slice(0, 8), [recentRunsQuery.data]);
+  const recentLoadRuns = useMemo(
+    () => recentLoadRunsQuery.data ?? [],
+    [recentLoadRunsQuery.data]
+  );
+  const latestPassedRun = useMemo(
+    () => recentRuns.find((run) => run.status === "passed"),
+    [recentRuns]
+  );
+  const latestLoadRun = useMemo(() => recentLoadRuns[0], [recentLoadRuns]);
   const blockers = detail?.result.signals.filter((signal) => signal.status === "failed") ?? [];
 
   useEffect(() => {
@@ -161,15 +240,54 @@ export const ReleaseGatePage = () => {
     }
   }, [blockers, selectedBlockerKey]);
 
+  useEffect(() => {
+    if (drawer !== "release") {
+      return;
+    }
+
+    if (!buildLabel) {
+      const stamp = new Date().toISOString().slice(0, 10);
+      setBuildLabel(`build-${stamp}.1`);
+    }
+
+    if (!sourceRunIds && latestPassedRun) {
+      setSourceRunIds(latestPassedRun.id);
+    }
+
+    if (!sourceLoadRunIds && latestLoadRun) {
+      setSourceLoadRunIds(latestLoadRun.id);
+    }
+
+    if (!releaseNotes && (latestPassedRun || latestLoadRun)) {
+      setReleaseNotes(
+        pick(
+          "Release candidate scoped to the selected functional and load evidence.",
+          "本次发布候选绑定到了当前选择的功能和压测证据。"
+        )
+      );
+    }
+  }, [
+    buildLabel,
+    drawer,
+    latestLoadRun,
+    latestPassedRun,
+    pick,
+    releaseNotes,
+    sourceLoadRunIds,
+    sourceRunIds
+  ]);
+
   const errors = [
+    recentRunsQuery.error instanceof Error ? recentRunsQuery.error.message : null,
+    recentLoadRunsQuery.error instanceof Error ? recentLoadRunsQuery.error.message : null,
     createPolicyMutation.error instanceof Error ? createPolicyMutation.error.message : null,
     createReleaseMutation.error instanceof Error ? createReleaseMutation.error.message : null,
     createWaiverMutation.error instanceof Error ? createWaiverMutation.error.message : null,
     createApprovalMutation.error instanceof Error ? createApprovalMutation.error.message : null
   ].filter((value): value is string => Boolean(value));
 
-  const panelClass = `rounded-[28px] border border-slate-200 bg-white ${isDense ? "p-4" : "p-5"}`;
-  const inputClass = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm";
+  const panelClass = `console-panel ${isDense ? "p-4" : "p-5"}`;
+  const inputClass = "console-input text-sm";
   const pageGap = isDense ? "gap-4" : "gap-6";
 
   const savePolicy = () =>
@@ -194,7 +312,12 @@ export const ReleaseGatePage = () => {
       environmentId: selectedEnvironmentId || undefined,
       gatePolicyId: selectedGatePolicyId,
       name: releaseName,
-      buildLabel
+      buildLabel,
+      buildId: buildId.trim() || undefined,
+      commitSha: commitSha.trim() || undefined,
+      sourceRunIds: parseBindingIds(sourceRunIds),
+      sourceLoadRunIds: parseBindingIds(sourceLoadRunIds),
+      notes: releaseNotes.trim() || undefined
     });
 
   const saveWaiver = () => {
@@ -225,6 +348,22 @@ export const ReleaseGatePage = () => {
     });
   };
 
+  const toggleSourceRunId = (runId: string) => {
+    setSourceRunIds((current) =>
+      parseBindingIds(current).includes(runId)
+        ? removeBindingId(current, runId)
+        : upsertBindingId(current, runId)
+    );
+  };
+
+  const toggleSourceLoadRunId = (runId: string) => {
+    setSourceLoadRunIds((current) =>
+      parseBindingIds(current).includes(runId)
+        ? removeBindingId(current, runId)
+        : upsertBindingId(current, runId)
+    );
+  };
+
   return (
     <PlatformPageShell
       dense={isDense}
@@ -237,7 +376,7 @@ export const ReleaseGatePage = () => {
       actions={
         <>
           <select
-            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700"
+            className="console-input min-w-[220px] rounded-full px-4 py-2 text-sm"
             value={projectId}
             onChange={(event) => updateSearch({ projectId: event.target.value, releaseId: null })}
           >
@@ -256,14 +395,14 @@ export const ReleaseGatePage = () => {
           <button
             type="button"
             onClick={() => setDrawer("policy")}
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+            className="console-button-primary text-sm"
           >
             {pick("Create policy", "创建策略")}
           </button>
           <button
             type="button"
             onClick={() => setDrawer("release")}
-            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+            className="console-button-secondary text-sm"
           >
             {pick("Create release", "创建发布")}
           </button>
@@ -359,6 +498,14 @@ export const ReleaseGatePage = () => {
                     {detail.release.status.toUpperCase()}
                   </PlatformBadge>
                 </div>
+                <div className="mt-4">
+                  <Link
+                    to={`/platform/releases/${detail.release.id}`}
+                    className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
+                  >
+                    {pick("Open detail page", "打开详情页")}
+                  </Link>
+                </div>
                 <div className={`mt-4 grid md:grid-cols-3 ${pageGap}`}>
                   <PlatformMetricCard label={pick("Signals", "信号")} value={detail.result.signals.length} dense={isDense} />
                   <PlatformMetricCard label={pick("Waivers", "豁免")} value={detail.waivers.length} dense={isDense} />
@@ -415,7 +562,7 @@ export const ReleaseGatePage = () => {
                     <button
                       type="button"
                       onClick={() => setDrawer("approval")}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+                      className="console-button-secondary text-sm"
                     >
                       {pick("Record approval", "记录审批")}
                     </button>
@@ -563,6 +710,108 @@ export const ReleaseGatePage = () => {
       >
         {drawer === "policy" ? (
           <div className="space-y-4">
+            <div hidden className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                  {pick("Recent functional evidence", "最近功能证据")}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {pick(
+                    "Pick the exact runs that should represent this release.",
+                    "选择这次发布真正要代表的那组功能运行。"
+                  )}
+                </p>
+              </div>
+              <div className="mt-3 space-y-2">
+                {recentRuns.length > 0 ? (
+                  recentRuns.map((run) => {
+                    const selected = parsedSourceRunIds.includes(run.id);
+                    return (
+                      <div
+                        key={run.id}
+                        className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium text-slate-900">{run.id}</p>
+                            <PlatformBadge dense tone={runTone(run.status)}>
+                              {run.status.toUpperCase()}
+                            </PlatformBadge>
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-xs text-slate-600">{run.goal}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {formatRelativeTime(run.createdAt)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleSourceRunId(run.id)}
+                          className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+                        >
+                          {selected ? pick("Remove", "移除") : pick("Add", "添加")}
+                        </button>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    {pick("No recent functional run found.", "没有找到最近的功能运行。")}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div hidden className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                  {pick("Recent load evidence", "最近压测证据")}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {pick(
+                    "Pick the exact load runs that should gate this release.",
+                    "选择这次发布真正要作为门禁依据的压测运行。"
+                  )}
+                </p>
+              </div>
+              <div className="mt-3 space-y-2">
+                {recentLoadRuns.length > 0 ? (
+                  recentLoadRuns.map((run) => {
+                    const selected = parsedSourceLoadRunIds.includes(run.id);
+                    return (
+                      <div
+                        key={run.id}
+                        className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium text-slate-900">{run.id}</p>
+                            <PlatformBadge dense tone={verdictTone[run.verdict] ?? "warning"}>
+                              {run.verdict.toUpperCase()}
+                            </PlatformBadge>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-600">
+                            {`${run.profileName} 路 ${run.environmentLabel}`}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {`${run.metrics.p95Ms.toFixed(0)} ms 路 ${formatRelativeTime(run.createdAt)}`}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleSourceLoadRunId(run.id)}
+                          className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+                        >
+                          {selected ? pick("Remove", "移除") : pick("Add", "添加")}
+                        </button>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    {pick("No recent load run found.", "没有找到最近的压测运行。")}
+                  </p>
+                )}
+              </div>
+            </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 {pick("Name", "名称")}
@@ -593,6 +842,20 @@ export const ReleaseGatePage = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700">
+                  {pick("Build ID", "构建 ID")}
+                </label>
+                <input className={inputClass} value={buildId} onChange={(event) => setBuildId(event.target.value)} />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  {pick("Commit SHA", "提交 SHA")}
+                </label>
+                <input className={inputClass} value={commitSha} onChange={(event) => setCommitSha(event.target.value)} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
                   {pick("Environment", "环境")}
                 </label>
                 <select className={inputClass} value={selectedEnvironmentId} onChange={(event) => updateSearch({ environmentId: event.target.value })}>
@@ -615,6 +878,227 @@ export const ReleaseGatePage = () => {
                   ))}
                 </select>
               </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => latestPassedRun && setSourceRunIds(latestPassedRun.id)}
+                disabled={!latestPassedRun}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pick("Use latest passing run", "使用最新通过运行")}
+              </button>
+              <button
+                type="button"
+                onClick={() => latestLoadRun && setSourceLoadRunIds(latestLoadRun.id)}
+                disabled={!latestLoadRun}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pick("Use latest load run", "使用最新压测运行")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (latestPassedRun) {
+                    setSourceRunIds(latestPassedRun.id);
+                  }
+                  if (latestLoadRun) {
+                    setSourceLoadRunIds(latestLoadRun.id);
+                  }
+                }}
+                disabled={!latestPassedRun && !latestLoadRun}
+                className="console-button-secondary px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {pick("Use latest evidence bundle", "使用最新证据组合")}
+              </button>
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                    {pick("Recent functional evidence", "\u6700\u8fd1\u529f\u80fd\u8bc1\u636e")}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {pick(
+                      "Pick the exact runs that should represent this release.",
+                      "\u9009\u62e9\u8fd9\u6b21\u53d1\u5e03\u771f\u6b63\u4ee3\u8868\u7684\u529f\u80fd\u8fd0\u884c\u3002"
+                    )}
+                  </p>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {recentRuns.length > 0 ? (
+                    recentRuns.map((run) => {
+                      const selected = parsedSourceRunIds.includes(run.id);
+                      return (
+                        <div
+                          key={run.id}
+                          className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate font-medium text-slate-900">{run.id}</p>
+                              <PlatformBadge dense tone={runTone(run.status)}>
+                                {run.status.toUpperCase()}
+                              </PlatformBadge>
+                            </div>
+                            <p className="mt-1 line-clamp-2 text-xs text-slate-600">{run.goal}</p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {formatRelativeTime(run.createdAt)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleSourceRunId(run.id)}
+                            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+                          >
+                            {selected
+                              ? pick("Remove", "\u79fb\u9664")
+                              : pick("Add", "\u6dfb\u52a0")}
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      {pick(
+                        "No recent functional run found.",
+                        "\u6ca1\u6709\u627e\u5230\u6700\u8fd1\u7684\u529f\u80fd\u8fd0\u884c\u3002"
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
+                    {pick("Recent load evidence", "\u6700\u8fd1\u538b\u6d4b\u8bc1\u636e")}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {pick(
+                      "Pick the exact load runs that should gate this release.",
+                      "\u9009\u62e9\u8fd9\u6b21\u53d1\u5e03\u771f\u6b63\u7528\u4e8e\u95e8\u7981\u5224\u65ad\u7684\u538b\u6d4b\u8fd0\u884c\u3002"
+                    )}
+                  </p>
+                </div>
+                <div className="mt-3 space-y-2">
+                  {recentLoadRuns.length > 0 ? (
+                    recentLoadRuns.map((run) => {
+                      const selected = parsedSourceLoadRunIds.includes(run.id);
+                      return (
+                        <div
+                          key={run.id}
+                          className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="truncate font-medium text-slate-900">{run.id}</p>
+                              <PlatformBadge dense tone={verdictTone[run.verdict] ?? "warning"}>
+                                {run.verdict.toUpperCase()}
+                              </PlatformBadge>
+                            </div>
+                            <p className="mt-1 text-xs text-slate-600">
+                              {`${run.profileName} / ${run.environmentLabel}`}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {`${run.metrics.p95Ms.toFixed(0)} ms / ${formatRelativeTime(run.createdAt)}`}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleSourceLoadRunId(run.id)}
+                            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700"
+                          >
+                            {selected
+                              ? pick("Remove", "\u79fb\u9664")
+                              : pick("Add", "\u6dfb\u52a0")}
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-slate-500">
+                      {pick(
+                        "No recent load run found.",
+                        "\u6ca1\u6709\u627e\u5230\u6700\u8fd1\u7684\u538b\u6d4b\u8fd0\u884c\u3002"
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {pick("Source run IDs", "功能运行 ID")}
+              </label>
+              <textarea
+                className={`${inputClass} min-h-[110px]`}
+                value={sourceRunIds}
+                onChange={(event) => setSourceRunIds(event.target.value)}
+                placeholder={pick("One run ID per line", "每行一个运行 ID")}
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                {parsedSourceRunIds.length > 0 ? (
+                  parsedSourceRunIds.map((runId) => (
+                    <button
+                      key={runId}
+                      type="button"
+                      onClick={() => toggleSourceRunId(runId)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700"
+                    >
+                      {`${runId} ${pick("Remove", "\u79fb\u9664")}`}
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    {pick(
+                      "No functional run is bound yet. Pick from recent evidence below.",
+                      "还没有绑定功能运行，可以直接从下面的最近证据里选择。"
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {pick("Source load run IDs", "压测运行 ID")}
+              </label>
+              <textarea
+                className={`${inputClass} min-h-[110px]`}
+                value={sourceLoadRunIds}
+                onChange={(event) => setSourceLoadRunIds(event.target.value)}
+                placeholder={pick("One load run ID per line", "每行一个压测运行 ID")}
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                {parsedSourceLoadRunIds.length > 0 ? (
+                  parsedSourceLoadRunIds.map((runId) => (
+                    <button
+                      key={runId}
+                      type="button"
+                      onClick={() => toggleSourceLoadRunId(runId)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700"
+                    >
+                      {`${runId} ${pick("Remove", "\u79fb\u9664")}`}
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    {pick(
+                      "No load run is bound yet. Pick from recent load evidence below.",
+                      "还没有绑定压测运行，可以直接从下面的最近压测证据里选择。"
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                {pick("Notes", "备注")}
+              </label>
+              <textarea
+                className={`${inputClass} min-h-[120px]`}
+                value={releaseNotes}
+                onChange={(event) => setReleaseNotes(event.target.value)}
+              />
             </div>
           </div>
         ) : drawer === "waiver" ? (

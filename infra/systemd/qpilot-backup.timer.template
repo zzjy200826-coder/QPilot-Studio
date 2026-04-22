@@ -1,0 +1,10 @@
+[Unit]
+Description=QPilot daily shared backup timer
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+Unit=qpilot-backup.service
+
+[Install]
+WantedBy=timers.target

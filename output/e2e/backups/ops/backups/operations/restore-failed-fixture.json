@@ -1,0 +1,51 @@
+{
+  "id": "restore-failed-fixture",
+  "type": "restore",
+  "status": "failed",
+  "snapshotId": "20260422T040000Z-manual-restore",
+  "snapshotKind": "manual",
+  "triggeredBy": "fixture-owner",
+  "message": "Auto rollback failed. The instance remains in maintenance mode for manual recovery.",
+  "error": "Restore verification failed.\nAuto rollback: rollback verification failed.",
+  "detail": {
+    "phase": "completed",
+    "phaseUpdatedAt": "2026-04-22T11:22:15.327Z",
+    "failureReason": "restore_auto_rollback_failed",
+    "rollbackSnapshotId": "20260422T025500Z-pre_restore-fixture",
+    "rollbackSucceeded": false,
+    "verification": {
+      "ok": false,
+      "checkedAt": "2026-04-22T11:22:15.327Z",
+      "baseUrl": "https://qpilot.example.test",
+      "checks": [
+        {
+          "key": "ready",
+          "label": "GET /health/ready",
+          "state": "failed",
+          "status": 503,
+          "detail": "Readiness probe returned HTTP 503.",
+          "checkedAt": "2026-04-22T11:22:15.327Z"
+        }
+      ]
+    },
+    "rollbackVerification": {
+      "ok": false,
+      "checkedAt": "2026-04-22T11:22:15.327Z",
+      "baseUrl": "https://qpilot.example.test",
+      "checks": [
+        {
+          "key": "ready",
+          "label": "GET /health/ready",
+          "state": "failed",
+          "status": 503,
+          "detail": "Rollback readiness probe returned HTTP 503.",
+          "checkedAt": "2026-04-22T11:22:15.327Z"
+        }
+      ]
+    }
+  },
+  "createdAt": "2026-04-22T11:22:15.327Z",
+  "updatedAt": "2026-04-22T11:22:15.327Z",
+  "startedAt": "2026-04-22T11:22:15.327Z",
+  "finishedAt": "2026-04-22T11:22:15.327Z"
+}

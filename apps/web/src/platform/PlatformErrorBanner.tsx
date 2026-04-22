@@ -8,7 +8,7 @@ export const PlatformErrorBanner = ({
   }
 
   return (
-    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+    <div className="console-alert rounded-[20px] border border-rose-200/80 bg-rose-50/92 px-4 py-3 text-sm text-rose-800">
       <div className="space-y-1">
         {messages.map((message) => (
           <p key={message}>{message}</p>

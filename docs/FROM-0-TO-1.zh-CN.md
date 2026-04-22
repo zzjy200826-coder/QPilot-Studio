@@ -1,5 +1,8 @@
 # QPilot Studio《从 0 到 1 开发这个项目》超级详解总手册
 
+如果你现在要的是“真正给完全小白看的百科全书式版本”，并且希望从电脑零基础一路读到部署公网与业务实战，请先看 [ULTIMATE-0-TO-1.zh-CN.md](./ULTIMATE-0-TO-1.zh-CN.md)。  
+当前这份文档保留为“中等深度总手册”，更适合已经补过基础词汇、想较快进入系统主线的读者。
+
 ## 这份文档适合谁
 
 这份文档写给下面这类读者：
@@ -30,6 +33,7 @@
 如果你只想看专题深挖，可以跳去这些文档：
 
 - [FOUNDATIONS-101.zh-CN.md](./FOUNDATIONS-101.zh-CN.md)：真正给完全小白补预备知识
+- [DEPLOYMENT-101.zh-CN.md](./DEPLOYMENT-101.zh-CN.md)：把本地项目一步步发布到公网的部署 SOP
 - [ARCHITECTURE.zh-CN.md](./ARCHITECTURE.zh-CN.md)：工程版架构主文档
 - [ARCHITECTURE-101.zh-CN.md](./ARCHITECTURE-101.zh-CN.md)：架构扫盲版
 - [RUN-LIFECYCLE-101.zh-CN.md](./RUN-LIFECYCLE-101.zh-CN.md)：一次运行的全过程

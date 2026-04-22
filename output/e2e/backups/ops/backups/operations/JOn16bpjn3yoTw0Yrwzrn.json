@@ -1,0 +1,18 @@
+{
+  "id": "JOn16bpjn3yoTw0Yrwzrn",
+  "type": "backup",
+  "status": "succeeded",
+  "snapshotKind": "manual",
+  "triggeredBy": "Backups Owner",
+  "message": "Backup snapshot 20260422T112210Z-manual-N3PTfTi7 uploaded successfully.",
+  "detail": {
+    "snapshotId": "20260422T112210Z-manual-N3PTfTi7",
+    "objectKey": "backups/2026/04/20260422T112210Z-manual-N3PTfTi7/archive.tar.gz.enc",
+    "manifestKey": "backups/2026/04/20260422T112210Z-manual-N3PTfTi7/manifest.json"
+  },
+  "createdAt": "2026-04-22T11:22:10.509Z",
+  "updatedAt": "2026-04-22T11:22:10.701Z",
+  "startedAt": "2026-04-22T11:22:10.513Z",
+  "snapshotId": "20260422T112210Z-manual-N3PTfTi7",
+  "finishedAt": "2026-04-22T11:22:10.700Z"
+}

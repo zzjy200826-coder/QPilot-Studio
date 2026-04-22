@@ -1,7 +1,88 @@
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const tenantsTable = sqliteTable("tenants", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull()
+});
+
+export const usersTable = sqliteTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  displayName: text("display_name"),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull()
+});
+
+export const membershipsTable = sqliteTable("memberships", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
+  userId: text("user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  role: text("role").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull()
+});
+
+export const authSessionsTable = sqliteTable("auth_sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => usersTable.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
+  membershipId: text("membership_id")
+    .notNull()
+    .references(() => membershipsTable.id),
+  secretHash: text("secret_hash").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+  createdAt: integer("created_at").notNull(),
+  lastSeenAt: integer("last_seen_at").notNull(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent")
+});
+
+export const apiTokensTable = sqliteTable("api_tokens", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
+  userId: text("user_id").references(() => usersTable.id),
+  membershipId: text("membership_id").references(() => membershipsTable.id),
+  label: text("label").notNull(),
+  secretHash: text("secret_hash").notNull(),
+  scopesJson: text("scopes_json").notNull().default("[]"),
+  lastUsedAt: integer("last_used_at"),
+  expiresAt: integer("expires_at"),
+  createdAt: integer("created_at").notNull()
+});
+
+export const auditLogsTable = sqliteTable("audit_logs", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
+  userId: text("user_id").references(() => usersTable.id),
+  action: text("action").notNull(),
+  targetType: text("target_type"),
+  targetId: text("target_id"),
+  detailJson: text("detail_json"),
+  ipAddress: text("ip_address"),
+  createdAt: integer("created_at").notNull()
+});
+
 export const projectsTable = sqliteTable("projects", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   name: text("name").notNull(),
   baseUrl: text("base_url").notNull(),
   usernameCipher: text("username_cipher"),
@@ -16,6 +97,9 @@ export const projectsTable = sqliteTable("projects", {
 
 export const runsTable = sqliteTable("runs", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   projectId: text("project_id")
     .notNull()
     .references(() => projectsTable.id),
@@ -41,6 +125,9 @@ export const runsTable = sqliteTable("runs", {
 
 export const stepsTable = sqliteTable("steps", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   runId: text("run_id")
     .notNull()
     .references(() => runsTable.id),
@@ -58,6 +145,9 @@ export const stepsTable = sqliteTable("steps", {
 
 export const testCasesTable = sqliteTable("test_cases", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   runId: text("run_id")
     .notNull()
     .references(() => runsTable.id),
@@ -78,6 +168,9 @@ export const reportsTable = sqliteTable("reports", {
     .notNull()
     .primaryKey()
     .references(() => runsTable.id),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   htmlPath: text("html_path").notNull(),
   xlsxPath: text("xlsx_path").notNull(),
   createdAt: integer("created_at").notNull()
@@ -85,6 +178,9 @@ export const reportsTable = sqliteTable("reports", {
 
 export const caseTemplatesTable = sqliteTable("case_templates", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   projectId: text("project_id")
     .notNull()
     .references(() => projectsTable.id),
@@ -104,6 +200,9 @@ export const caseTemplatesTable = sqliteTable("case_templates", {
 
 export const loadProfilesTable = sqliteTable("load_profiles", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   projectId: text("project_id")
     .notNull()
     .references(() => projectsTable.id),
@@ -138,6 +237,9 @@ export const loadProfilesTable = sqliteTable("load_profiles", {
 
 export const loadRunsTable = sqliteTable("load_runs", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   projectId: text("project_id")
     .notNull()
     .references(() => projectsTable.id),
@@ -167,6 +269,9 @@ export const loadRunsTable = sqliteTable("load_runs", {
 
 export const loadProfileBaselineEventsTable = sqliteTable("load_profile_baseline_events", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   profileId: text("profile_id")
     .notNull()
     .references(() => loadProfilesTable.id),
@@ -180,6 +285,9 @@ export const loadProfileBaselineEventsTable = sqliteTable("load_profile_baseline
 
 export const loadProfileVersionsTable = sqliteTable("load_profile_versions", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   profileId: text("profile_id")
     .notNull()
     .references(() => loadProfilesTable.id),
@@ -191,6 +299,9 @@ export const loadProfileVersionsTable = sqliteTable("load_profile_versions", {
 
 export const loadRunWorkersTable = sqliteTable("load_run_workers", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   runId: text("run_id")
     .notNull()
     .references(() => loadRunsTable.id),
@@ -211,6 +322,9 @@ export const loadRunWorkersTable = sqliteTable("load_run_workers", {
 
 export const loadRunSampleWindowsTable = sqliteTable("load_run_sample_windows", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   runId: text("run_id")
     .notNull()
     .references(() => loadRunsTable.id),
@@ -224,6 +338,9 @@ export const loadRunSampleWindowsTable = sqliteTable("load_run_sample_windows", 
 
 export const environmentTargetsTable = sqliteTable("environment_targets", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   projectId: text("project_id").references(() => projectsTable.id),
   name: text("name").notNull(),
   baseUrl: text("base_url").notNull(),
@@ -236,6 +353,9 @@ export const environmentTargetsTable = sqliteTable("environment_targets", {
 
 export const environmentServiceNodesTable = sqliteTable("environment_service_nodes", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   environmentId: text("environment_id")
     .notNull()
     .references(() => environmentTargetsTable.id),
@@ -251,6 +371,9 @@ export const environmentServiceNodesTable = sqliteTable("environment_service_nod
 
 export const injectorPoolsTable = sqliteTable("injector_pools", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   name: text("name").notNull(),
   region: text("region").notNull(),
   capacity: integer("capacity").notNull(),
@@ -262,6 +385,9 @@ export const injectorPoolsTable = sqliteTable("injector_pools", {
 
 export const injectorWorkersTable = sqliteTable("injector_workers", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   poolId: text("pool_id")
     .notNull()
     .references(() => injectorPoolsTable.id),
@@ -276,6 +402,9 @@ export const injectorWorkersTable = sqliteTable("injector_workers", {
 
 export const gatePoliciesTable = sqliteTable("gate_policies", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   projectId: text("project_id")
     .notNull()
     .references(() => projectsTable.id),
@@ -294,6 +423,9 @@ export const gatePoliciesTable = sqliteTable("gate_policies", {
 
 export const gatePolicyVersionsTable = sqliteTable("gate_policy_versions", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   policyId: text("policy_id")
     .notNull()
     .references(() => gatePoliciesTable.id),
@@ -306,6 +438,9 @@ export const gatePolicyVersionsTable = sqliteTable("gate_policy_versions", {
 
 export const releaseCandidatesTable = sqliteTable("release_candidates", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   projectId: text("project_id")
     .notNull()
     .references(() => projectsTable.id),
@@ -315,6 +450,10 @@ export const releaseCandidatesTable = sqliteTable("release_candidates", {
     .references(() => gatePoliciesTable.id),
   name: text("name").notNull(),
   buildLabel: text("build_label").notNull(),
+  buildId: text("build_id"),
+  commitSha: text("commit_sha"),
+  sourceRunIdsJson: text("source_run_ids_json").notNull().default("[]"),
+  sourceLoadRunIdsJson: text("source_load_run_ids_json").notNull().default("[]"),
   status: text("status").notNull().default("draft"),
   notes: text("notes"),
   createdAt: integer("created_at").notNull(),
@@ -323,6 +462,9 @@ export const releaseCandidatesTable = sqliteTable("release_candidates", {
 
 export const releaseGateResultsTable = sqliteTable("release_gate_results", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   releaseId: text("release_id")
     .notNull()
     .references(() => releaseCandidatesTable.id),
@@ -336,6 +478,9 @@ export const releaseGateResultsTable = sqliteTable("release_gate_results", {
 
 export const waiversTable = sqliteTable("waivers", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   releaseId: text("release_id")
     .notNull()
     .references(() => releaseCandidatesTable.id),
@@ -351,6 +496,9 @@ export const waiversTable = sqliteTable("waivers", {
 
 export const approvalEventsTable = sqliteTable("approval_events", {
   id: text("id").primaryKey(),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenantsTable.id),
   releaseId: text("release_id")
     .notNull()
     .references(() => releaseCandidatesTable.id),
@@ -360,4 +508,19 @@ export const approvalEventsTable = sqliteTable("approval_events", {
   action: text("action").notNull(),
   detail: text("detail"),
   createdAt: integer("created_at").notNull()
+});
+
+export const opsAlertEventsTable = sqliteTable("ops_alert_events", {
+  id: text("id").primaryKey(),
+  tenantId: text("tenant_id").references(() => tenantsTable.id),
+  ruleKey: text("rule_key").notNull(),
+  severity: text("severity").notNull(),
+  status: text("status").notNull(),
+  summary: text("summary").notNull(),
+  detailJson: text("detail_json").notNull().default("{}"),
+  fingerprint: text("fingerprint").notNull(),
+  firstTriggeredAt: integer("first_triggered_at").notNull(),
+  lastTriggeredAt: integer("last_triggered_at").notNull(),
+  lastDeliveredAt: integer("last_delivered_at"),
+  lastDeliveryError: text("last_delivery_error")
 });

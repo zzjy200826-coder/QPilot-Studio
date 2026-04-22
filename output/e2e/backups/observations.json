@@ -1,0 +1,20 @@
+{
+  "authEmail": "backups.owner@example.test",
+  "sharedRoot": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\shared",
+  "opsRoot": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\ops",
+  "bucketName": "qpilot-backups",
+  "snapshotId": "20260422T112210Z-manual-N3PTfTi7",
+  "seededOperations": [
+    "restore-running-fixture",
+    "restore-failed-fixture"
+  ],
+  "screenshots": {
+    "overview": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\screenshots\\01-backups-overview.png",
+    "backupSucceeded": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\screenshots\\02-backup-succeeded.png",
+    "restorePreflight": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\screenshots\\03-restore-preflight.png",
+    "activeRestore": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\screenshots\\04-backups-active-restore.png",
+    "maintenanceRollback": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\screenshots\\05-maintenance-rollback.png",
+    "historyFailed": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\screenshots\\06-backups-history-failed.png",
+    "zh": "C:\\Users\\zjy\\QPilot-Studio\\output\\e2e\\backups\\screenshots\\07-backups-zh.png"
+  }
+}

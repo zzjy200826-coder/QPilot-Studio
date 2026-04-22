@@ -1,18 +1,28 @@
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import cors from "@fastify/cors";
-import staticPlugin from "@fastify/static";
 import websocket from "@fastify/websocket";
 import Fastify from "fastify";
+import {
+  checkApiRateLimit,
+  formatRetryAfterSeconds,
+  getRequestIp,
+  resolveRequestAuth
+} from "./auth/service.js";
 import { env, RUNTIME_ROOT } from "./config/env.js";
 import { createDatabase, resolveDatabasePath } from "./db/client.js";
 import { migrateDatabase } from "./db/migrate.js";
 import { RunOrchestrator } from "./orchestrator/run-orchestrator.js";
+import { BackupRuntime } from "./platform/backups.js";
 import { executePersistedPlatformLoadRun } from "./platform/load-control-plane.js";
 import { PlatformLoadQueue } from "./platform/load-queue.js";
+import { startOpsAlertMonitor } from "./platform/ops-alerts.js";
 import { EvidenceStore } from "./server/evidence-store.js";
+import { registerAuthRoutes } from "./server/routes/auth.js";
+import { registerFileRoutes } from "./server/routes/files.js";
 import { LiveStreamHub } from "./server/live-stream-hub.js";
 import { registerHealthRoutes } from "./server/routes/health.js";
+import { registerBackupRoutes } from "./server/routes/backups.js";
 import { registerLiveRoutes } from "./server/routes/live.js";
 import { registerLoadRoutes } from "./server/routes/load.js";
 import { registerPlatformRoutes } from "./server/routes/platform.js";
@@ -28,6 +38,9 @@ const resolvePath = (value: string): string => resolve(RUNTIME_ROOT, value);
 
 export const createServer = async (): Promise<AppFastify> => {
   const app = Fastify({ logger: true }) as unknown as AppFastify;
+  const allowedCorsOrigins = env.CORS_ORIGIN.split(",")
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 
   const databasePath = resolveDatabasePath(env.DATABASE_URL, RUNTIME_ROOT);
   await migrateDatabase();
@@ -75,39 +88,99 @@ export const createServer = async (): Promise<AppFastify> => {
       error: (message, error) => app.log.error({ error }, message)
     }
   });
+  const backupRuntime = new BackupRuntime({
+    orchestrator,
+    platformLoadQueue,
+    logger: app.log
+  });
 
   app.appContext = {
+    dbClient: client,
     db,
     orchestrator,
     evidenceStore,
     sseHub,
     liveStreamHub,
     runtimeBaseUrl: `http://${env.HOST}:${env.PORT}`,
-    platformLoadQueue
+    platformLoadQueue,
+    backupRuntime
   };
+  const stopOpsAlertMonitor = startOpsAlertMonitor({
+    db,
+    dbClient: client,
+    platformLoadQueue,
+    maintenanceState: () => backupRuntime.getMaintenanceState(),
+    logger: app.log
+  });
 
   await app.register(cors, {
-    origin: env.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      if (!origin || allowedCorsOrigins.length === 0 || allowedCorsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Origin not allowed by CORS"), false);
+    },
     credentials: true
   });
   await app.register(websocket);
 
-  await app.register(staticPlugin, {
-    root: artifactsRoot,
-    prefix: "/artifacts/"
-  });
+  app.addHook("onRequest", async (request, reply) => {
+    request.auth = null;
+    const pathname = request.raw.url?.split("?")[0] ?? "";
+    const isAuthRoute = pathname.startsWith("/api/auth");
+    const isRuntimeMaintenanceRoute = pathname === "/api/runtime/maintenance";
+    const isPublicRoute =
+      pathname === "/health" || isAuthRoute || isRuntimeMaintenanceRoute;
+    const isMaintenanceBypassRoute =
+      pathname === "/health" ||
+      pathname === "/health/ready" ||
+      pathname === "/metrics" ||
+      isRuntimeMaintenanceRoute;
+    const shouldRateLimit =
+      (pathname.startsWith("/api/") || pathname.startsWith("/artifacts/") || pathname.startsWith("/reports/")) &&
+      !isPublicRoute;
 
-  await app.register(staticPlugin, {
-    root: reportsRoot,
-    prefix: "/reports/",
-    decorateReply: false
+    const maintenance = await backupRuntime.getMaintenanceState();
+    if (maintenance?.active && !isMaintenanceBypassRoute) {
+      return reply.status(503).send({
+        error: maintenance.message,
+        maintenance
+      });
+    }
+
+    if (shouldRateLimit) {
+      const rateLimit = checkApiRateLimit(
+        `${getRequestIp(request) ?? "unknown"}:${pathname.split("/").slice(0, 4).join("/")}`
+      );
+      if (!rateLimit.allowed) {
+        reply.header("Retry-After", String(formatRetryAfterSeconds(rateLimit.retryAfterMs)));
+        return reply.status(429).send({ error: "Too many requests. Please retry shortly." });
+      }
+    }
+
+    request.auth = await resolveRequestAuth(db, request);
+
+    if (
+      !isPublicRoute &&
+      (pathname.startsWith("/api/") || pathname.startsWith("/artifacts/") || pathname.startsWith("/reports/")) &&
+      !request.auth
+    ) {
+      return reply.status(401).send({ error: "Authentication required." });
+    }
   });
 
   registerHealthRoutes(app);
+  registerAuthRoutes(app);
+  registerFileRoutes(app, {
+    artifactsRoot,
+    reportsRoot
+  });
   registerLiveRoutes(app);
   registerLoadRoutes(app);
   registerMetricsRoutes(app);
   registerPlatformRoutes(app);
+  registerBackupRoutes(app);
   registerProjectRoutes(app);
   registerRuntimeRoutes(app);
   registerRunRoutes(app);
@@ -116,6 +189,7 @@ export const createServer = async (): Promise<AppFastify> => {
   app.addHook("onClose", async () => {
     sseHub.close();
     liveStreamHub.close();
+    stopOpsAlertMonitor();
     await platformLoadQueue.close();
     client.close();
   });

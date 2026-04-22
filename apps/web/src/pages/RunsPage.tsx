@@ -221,7 +221,7 @@ const BenchmarkScenarioCard = ({
           type="button"
           onClick={() => onReplay(scenario.caseId)}
           disabled={replayPending}
-          className="rounded-full border border-slate-900 bg-slate-900 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="console-button-primary px-3 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
         >
           {replayPending
             ? pick("Starting replay...", "正在启动回放...")
@@ -229,14 +229,14 @@ const BenchmarkScenarioCard = ({
         </button>
         <Link
           to={`/benchmarks/${scenario.caseId}`}
-          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700"
+          className="console-button-secondary px-3 py-1 text-xs"
         >
           {pick("Open scenario", "打开场景")}
         </Link>
         {scenario.lastRunId ? (
           <Link
             to={`/reports/${scenario.lastRunId}`}
-            className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700"
+            className="console-button-subtle px-3 py-1 text-xs"
           >
             {pick("Open latest report", "打开最近报告")}
           </Link>
@@ -244,7 +244,7 @@ const BenchmarkScenarioCard = ({
         {lastFailureId ? (
           <Link
             to={`/reports/${lastFailureId}`}
-            className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700"
+            className="console-button-danger px-3 py-1 text-xs"
           >
             {pick("Open latest failure", "打开最近失败")}
           </Link>
@@ -252,7 +252,7 @@ const BenchmarkScenarioCard = ({
         {canCompareLastGreen && scenario.latestPassedRunId ? (
           <Link
             to={`/reports/${lastFailureId}?compareTo=${scenario.latestPassedRunId}`}
-            className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800"
+            className="console-button-subtle px-3 py-1 text-xs"
           >
             {pick("Compare last green", "对比最近绿色基线")}
           </Link>
@@ -337,14 +337,14 @@ export const RunsPage = () => {
 
   return (
     <section className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="console-panel p-5">
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-44 flex-1">
             <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
               {pick("Project Filter", "项目筛选")}
             </label>
             <select
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="console-input text-sm"
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
             >
@@ -361,7 +361,7 @@ export const RunsPage = () => {
               {pick("Search Runs", "搜索运行")}
             </label>
             <input
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              className="console-input text-sm"
               placeholder={pick("Run ID / Goal / Page", "运行 ID / 目标 / 页面")}
               value={keyword}
               onChange={(event) =>
@@ -373,14 +373,14 @@ export const RunsPage = () => {
           </div>
           <Link
             to="/runs/new"
-            className="rounded-lg bg-ink px-4 py-2 text-sm font-medium text-white"
+            className="console-button-primary text-sm"
           >
             {pick("New Run", "新建运行")}
           </Link>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="console-panel p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">
@@ -394,7 +394,7 @@ export const RunsPage = () => {
             </p>
           </div>
           {benchmarkQuery.data ? (
-            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+            <span className="console-data-pill px-3 py-1 text-xs font-medium text-slate-700">
               {benchmarkQuery.data.scenarioCount}
             </span>
           ) : null}
@@ -407,7 +407,7 @@ export const RunsPage = () => {
         ) : benchmarkQuery.data ? (
           <>
             <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="console-kpi p-4">
                 <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                   {pick("Scenarios", "场景数")}
                 </p>
@@ -415,7 +415,7 @@ export const RunsPage = () => {
                   {benchmarkQuery.data.scenarioCount}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="console-kpi p-4">
                 <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                   {pick("Covered", "已覆盖")}
                 </p>
@@ -423,7 +423,7 @@ export const RunsPage = () => {
                   {benchmarkQuery.data.coveredScenarioCount}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="console-kpi p-4">
                 <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                   {pick("Replay Pass Rate", "回放通过率")}
                 </p>
@@ -431,7 +431,7 @@ export const RunsPage = () => {
                   {formatPercent(benchmarkQuery.data.passRate)}
                 </p>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="console-kpi p-4">
                 <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
                   {pick("Avg Steps", "平均步数")}
                 </p>
@@ -445,13 +445,13 @@ export const RunsPage = () => {
               {benchmarkQuery.data.recentFailureCategories.map((bucket) => (
                 <span
                   key={bucket.category}
-                  className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-800"
+                  className="console-data-pill border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-medium text-amber-800"
                 >
                   {bucket.category} · {bucket.count}
                 </span>
               ))}
               {benchmarkQuery.data.recentFailureCategories.length === 0 ? (
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700">
+                <span className="console-data-pill border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-700">
                   {pick("No recent benchmark failures", "最近没有 benchmark 失败")}
                 </span>
               ) : null}

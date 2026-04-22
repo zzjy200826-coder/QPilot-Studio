@@ -1,5 +1,13 @@
-import type {
+import {
+  MaintenanceStatusSchema,
+  type
   Action,
+  ApiTokenCreateResult,
+  AuthMe,
+  BackupConfigStatus,
+  BackupOperation,
+  BackupPreflightResult,
+  BackupSnapshot,
   ControlTowerSummary,
   BenchmarkSummary,
   CaseTemplate,
@@ -21,13 +29,16 @@ import type {
   LoadRunDetail,
   LoadRunSeries,
   LoadStudioSummary,
+  MaintenanceStatus,
   NetworkEvidenceEntry,
+  OpsSummary,
   PlatformInfrastructureSummary,
   PlatformLoadQueueSummary,
   Project,
   ReleaseCandidate,
   ReleaseAudit,
   ReleaseGateDetail,
+  RuntimeMaintenanceStatus,
   Run,
   RunComparison,
   RunDiagnosis,
@@ -78,13 +89,16 @@ const runtimeRequestTimeoutMs = Number(
   import.meta.env.VITE_RUNTIME_REQUEST_TIMEOUT_MS ?? 8_000
 );
 
-type ApiErrorCode = "http_error" | "runtime_unavailable";
+type ApiErrorCode = "http_error" | "runtime_unavailable" | "maintenance_mode";
+export const maintenanceEventName = "qpilot:maintenance";
 
 export class ApiError extends Error {
   code: ApiErrorCode;
   url: string;
   status?: number;
   cause?: unknown;
+  maintenance?: MaintenanceStatus;
+  details?: unknown;
 
   constructor(
     message: string,
@@ -93,6 +107,8 @@ export class ApiError extends Error {
       url: string;
       status?: number;
       cause?: unknown;
+      maintenance?: MaintenanceStatus;
+      details?: unknown;
     }
   ) {
     super(message);
@@ -101,11 +117,53 @@ export class ApiError extends Error {
     this.url = options.url;
     this.status = options.status;
     this.cause = options.cause;
+    this.maintenance = options.maintenance;
+    this.details = options.details;
   }
 }
 
 export const isRuntimeUnavailableError = (error: unknown): error is ApiError =>
   error instanceof ApiError && error.code === "runtime_unavailable";
+
+export const isUnauthorizedError = (error: unknown): error is ApiError =>
+  error instanceof ApiError && error.status === 401;
+
+export const isMaintenanceError = (error: unknown): error is ApiError =>
+  error instanceof ApiError && error.code === "maintenance_mode";
+
+const parseMaintenancePayload = (value: unknown): MaintenanceStatus | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const maintenance = candidate.maintenance;
+  if (!maintenance || typeof maintenance !== "object") {
+    return null;
+  }
+
+  try {
+    return MaintenanceStatusSchema.parse(maintenance);
+  } catch {
+    return null;
+  }
+};
+
+const dispatchMaintenanceEvent = (maintenance: MaintenanceStatus): void => {
+  if (
+    typeof window === "undefined" ||
+    typeof window.dispatchEvent !== "function" ||
+    typeof CustomEvent === "undefined"
+  ) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<MaintenanceStatus>(maintenanceEventName, {
+      detail: maintenance
+    })
+  );
+};
 
 const buildRuntimeUrl = (path: string): string => `${runtimeBase}${path}`;
 
@@ -138,6 +196,7 @@ const runtimeFetch = async (path: string, init?: RequestInit): Promise<Response>
   try {
     return await fetch(url, {
       ...init,
+      credentials: init?.credentials ?? "include",
       signal: controller.signal
     });
   } catch (error) {
@@ -171,11 +230,38 @@ const runtimeFetch = async (path: string, init?: RequestInit): Promise<Response>
 const toJson = async <T>(response: Response): Promise<T> => {
   if (!response.ok) {
     const body = await response.text();
-    throw new ApiError(body || `HTTP ${response.status}`, {
-      code: "http_error",
-      url: response.url,
-      status: response.status
-    });
+    let details: unknown = null;
+    try {
+      details = body ? JSON.parse(body) : null;
+    } catch {
+      details = null;
+    }
+    const maintenance = parseMaintenancePayload(details);
+    if (response.status === 503 && maintenance) {
+      dispatchMaintenanceEvent(maintenance);
+      throw new ApiError(
+        (details as { error?: string } | null)?.error ??
+          maintenance.message ??
+          body ??
+          "Runtime maintenance window is active.",
+        {
+          code: "maintenance_mode",
+          url: response.url,
+          status: response.status,
+          maintenance,
+          details
+        }
+      );
+    }
+    throw new ApiError(
+      (details as { error?: string } | null)?.error || body || `HTTP ${response.status}`,
+      {
+        code: "http_error",
+        url: response.url,
+        status: response.status,
+        details
+      }
+    );
   }
   return (await response.json()) as T;
 };
@@ -183,6 +269,52 @@ const toJson = async <T>(response: Response): Promise<T> => {
 export const api = {
   runtimeBase,
   runtimeWsBase,
+  async getMe(): Promise<AuthMe> {
+    return toJson<AuthMe>(await runtimeFetch("/api/auth/me"));
+  },
+  async register(payload: {
+    email: string;
+    password: string;
+    displayName?: string;
+    tenantName?: string;
+  }): Promise<AuthMe> {
+    return toJson<AuthMe>(
+      await runtimeFetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+    );
+  },
+  async login(payload: { email: string; password: string }): Promise<AuthMe> {
+    return toJson<AuthMe>(
+      await runtimeFetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+    );
+  },
+  async logout(): Promise<void> {
+    await toJson<{ ok: true }>(
+      await runtimeFetch("/api/auth/logout", {
+        method: "POST"
+      })
+    );
+  },
+  async createApiToken(payload: {
+    label: string;
+    scopes: Array<"release:create" | "gate:read">;
+    expiresAt?: string;
+  }): Promise<ApiTokenCreateResult> {
+    return toJson<ApiTokenCreateResult>(
+      await runtimeFetch("/api/auth/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+    );
+  },
   async listRuns(projectId?: string): Promise<Run[]> {
     const query = new URLSearchParams();
     if (projectId) {
@@ -401,6 +533,45 @@ export const api = {
   },
   async getPlatformLoadQueueSummary(): Promise<PlatformLoadQueueSummary> {
     return toJson<PlatformLoadQueueSummary>(await runtimeFetch("/api/platform/load/queue"));
+  },
+  async getOpsSummary(): Promise<OpsSummary> {
+    return toJson<OpsSummary>(await runtimeFetch("/api/platform/ops/summary"));
+  },
+  async getBackupConfigStatus(): Promise<BackupConfigStatus> {
+    return toJson<BackupConfigStatus>(await runtimeFetch("/api/platform/ops/backups/config"));
+  },
+  async listBackupSnapshots(): Promise<BackupSnapshot[]> {
+    return toJson<BackupSnapshot[]>(await runtimeFetch("/api/platform/ops/backups/snapshots"));
+  },
+  async runBackupNow(): Promise<BackupOperation> {
+    return toJson<BackupOperation>(
+      await runtimeFetch("/api/platform/ops/backups/run", {
+        method: "POST"
+      })
+    );
+  },
+  async previewBackupRestore(snapshotId: string): Promise<BackupPreflightResult> {
+    return toJson<BackupPreflightResult>(
+      await runtimeFetch("/api/platform/ops/backups/preflight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshotId })
+      })
+    );
+  },
+  async startBackupRestore(snapshotId: string): Promise<BackupOperation> {
+    return toJson<BackupOperation>(
+      await runtimeFetch("/api/platform/ops/backups/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ snapshotId })
+      })
+    );
+  },
+  async getBackupOperation(operationId: string): Promise<BackupOperation> {
+    return toJson<BackupOperation>(
+      await runtimeFetch(`/api/platform/ops/backups/operations/${operationId}`)
+    );
   },
   async getEnvironmentRegistry(projectId?: string): Promise<EnvironmentRegistry> {
     const query = new URLSearchParams();
@@ -679,6 +850,10 @@ export const api = {
     gatePolicyId: string;
     name: string;
     buildLabel: string;
+    buildId?: string;
+    commitSha?: string;
+    sourceRunIds?: string[];
+    sourceLoadRunIds?: string[];
     notes?: string;
   }): Promise<ReleaseCandidate> {
     return toJson<ReleaseCandidate>(
@@ -925,6 +1100,9 @@ export const api = {
   },
   async getActiveRun(): Promise<ActiveRunResponse> {
     return toJson<ActiveRunResponse>(await runtimeFetch("/api/runtime/active-run"));
+  },
+  async getMaintenanceStatus(): Promise<RuntimeMaintenanceStatus> {
+    return toJson<RuntimeMaintenanceStatus>(await runtimeFetch("/api/runtime/maintenance"));
   },
   createRunLiveSocket(runId: string): WebSocket {
     return new WebSocket(`${runtimeWsBase}/api/runs/${runId}/live`);

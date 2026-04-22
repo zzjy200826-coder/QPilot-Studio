@@ -3,7 +3,8 @@
     "projectId": "proj-mailbox",
     "baselineRunId": "run-mailbox-rerun-baseline",
     "candidateRunId": "run-mailbox-rerun-success",
-    "mailboxCaseId": "case-mailbox-recovery"
+    "mailboxCaseId": "case-mailbox-recovery",
+    "authEmail": "console.review@example.test"
   },
   "verifiedFlow": {
     "createdProjectName": "E2E Fresh Project",
@@ -12,8 +13,8 @@
     "firstDivergenceStep": 3
   },
   "languageReview": {
-    "chineseNavRunsLabel": "运行",
-    "chineseNavNewRunLabel": "新建运行",
+    "chineseNavRunsLabel": "运行\n运行、报告与回放历史",
+    "chineseNavNewRunLabel": "新建运行\n启动新的浏览器运行",
     "chineseLanguageChip": "语言",
     "mojibakeDetected": false
   },

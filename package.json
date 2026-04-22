@@ -10,6 +10,11 @@
     "dev:jobs": "pnpm --filter @qpilot/auto-find-jobs dev",
     "dev:desktop": "concurrently -k -n runtime,web,desktop \"pnpm dev:runtime\" \"pnpm dev:web\" \"wait-on http://localhost:5173 http://localhost:8787/health && pnpm --filter @qpilot/desktop dev\"",
     "dev": "pnpm --parallel --filter @qpilot/runtime --filter @qpilot/web dev",
+    "deploy:bootstrap": "pnpm --filter @qpilot/deploy run bootstrap",
+    "deploy:update": "pnpm --filter @qpilot/deploy run update",
+    "deploy:smoke": "pnpm --filter @qpilot/deploy run smoke",
+    "auth:bootstrap-owner": "pnpm --filter @qpilot/runtime run auth:bootstrap-owner",
+    "release:submit": "pnpm --filter @qpilot/runtime run release:submit",
     "test": "pnpm -r test",
     "lint": "pnpm -r lint"
   },

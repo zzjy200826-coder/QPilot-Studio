@@ -22,6 +22,13 @@ import {
   buildRunComparison,
   buildRunDiagnosis
 } from "../../analytics/run-insights.js";
+import { requireAuth, requireMinimumRole } from "../../auth/guards.js";
+import { hasMinimumRole } from "../../auth/service.js";
+import {
+  getTenantCaseRow,
+  getTenantProjectRow,
+  getTenantRunRow
+} from "../../auth/tenant-access.js";
 import { buildReplayCaseFromTemplate } from "../../cases/replay-case.js";
 import { buildCaseTemplateRepairDraft } from "../../cases/template-repair-draft.js";
 import { env } from "../../config/env.js";
@@ -170,6 +177,8 @@ const diagnosisQuerySchema = z.object({
   lang: z.enum(["en", "zh-CN"]).optional()
 });
 
+const fallbackTenantId = "tenant-default";
+
 interface StepDigestRow {
   runId: string;
   stepIndex: number;
@@ -234,6 +243,7 @@ const buildRunConfig = (payload: {
 const insertRun = async (
   app: AppFastify,
   payload: {
+    tenantId: string;
     projectId: string;
     status?: Run["status"];
     mode: "general" | "login" | "admin";
@@ -248,6 +258,7 @@ const insertRun = async (
 
   await app.appContext.db.insert(runsTable).values({
     id,
+    tenantId: payload.tenantId,
     projectId: payload.projectId,
     status: payload.status ?? "queued",
     mode: payload.mode,
@@ -303,19 +314,14 @@ const persistExecutionMode = async (
 
 const loadRepairDraftContext = async (
   app: AppFastify,
-  input: { caseId: string; runId: string }
+  input: { tenantId: string; caseId: string; runId: string }
 ): Promise<{
   caseRow?: CaseTemplateRow;
   runRow?: RunRow;
   stepRows: StepRow[];
   draft: CaseTemplateRepairDraft | null;
 }> => {
-  const caseRows = (await app.appContext.db
-    .select()
-    .from(caseTemplatesTable)
-    .where(eq(caseTemplatesTable.id, input.caseId))
-    .limit(1)) as CaseTemplateRow[];
-  const caseRow = caseRows[0];
+  const caseRow = await getTenantCaseRow(app.appContext.db, input.tenantId, input.caseId);
   if (!caseRow) {
     return {
       stepRows: [],
@@ -323,12 +329,7 @@ const loadRepairDraftContext = async (
     };
   }
 
-  const runRows = (await app.appContext.db
-    .select()
-    .from(runsTable)
-      .where(eq(runsTable.id, input.runId))
-      .limit(1)) as RunRow[];
-  const runRow = runRows[0];
+  const runRow = await getTenantRunRow(app.appContext.db, input.tenantId, input.runId);
   if (!runRow) {
     return {
       caseRow,
@@ -391,6 +392,7 @@ const startReplayRunFromCase = async (
     }
   });
   const runRow = await insertRun(app, {
+    tenantId: caseRow.tenantId ?? fallbackTenantId,
     projectId: caseRow.projectId,
     mode: "general",
     targetUrl: caseRow.entryUrl,
@@ -457,6 +459,7 @@ const startRerunFromRun = async (
   });
 
   const runRow = await insertRun(app, {
+    tenantId: sourceRunRow.tenantId ?? fallbackTenantId,
     projectId: sourceRunRow.projectId,
     mode: sourceRunRow.mode as "general" | "login" | "admin",
     targetUrl: sourceRunRow.targetUrl,
@@ -576,6 +579,7 @@ const enrichRunsWithLatestStep = async (
 
 const loadRunAnalysisContext = async (
   app: AppFastify,
+  tenantId: string,
   runId: string
 ): Promise<
   | {
@@ -586,12 +590,7 @@ const loadRunAnalysisContext = async (
     }
   | undefined
 > => {
-  const runRows = (await app.appContext.db
-    .select()
-    .from(runsTable)
-    .where(eq(runsTable.id, runId))
-    .limit(1)) as RunRow[];
-  const runRow = runRows[0];
+  const runRow = await getTenantRunRow(app.appContext.db, tenantId, runId);
   if (!runRow) {
     return undefined;
   }
@@ -618,39 +617,67 @@ const loadRunAnalysisContext = async (
 };
 
 export const registerRunRoutes = (app: AppFastify): void => {
-  app.get("/api/runs", async (request) => {
+  app.get("/api/runs", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listRunsQuerySchema.parse(request.query);
+
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found" });
+      }
+    }
 
     const rows = (query.projectId
       ? await app.appContext.db
           .select()
           .from(runsTable)
-          .where(eq(runsTable.projectId, query.projectId))
+          .where(and(eq(runsTable.projectId, query.projectId), eq(runsTable.tenantId, auth.tenant.id)))
           .orderBy(desc(runsTable.createdAt))
           .limit(query.limit)
       : await app.appContext.db
           .select()
           .from(runsTable)
+          .where(eq(runsTable.tenantId, auth.tenant.id))
           .orderBy(desc(runsTable.createdAt))
           .limit(query.limit)) as RunRow[];
 
     return enrichRunsWithLatestStep(app, rows);
   });
 
-  app.get("/api/benchmarks/summary", async (request) => {
+  app.get("/api/benchmarks/summary", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = benchmarkQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found" });
+      }
+    }
     const caseRows = (query.projectId
       ? await app.appContext.db
           .select()
           .from(caseTemplatesTable)
-          .where(eq(caseTemplatesTable.projectId, query.projectId))
-      : await app.appContext.db.select().from(caseTemplatesTable)) as CaseTemplateRow[];
+          .where(and(eq(caseTemplatesTable.projectId, query.projectId), eq(caseTemplatesTable.tenantId, auth.tenant.id)))
+      : await app.appContext.db
+          .select()
+          .from(caseTemplatesTable)
+          .where(eq(caseTemplatesTable.tenantId, auth.tenant.id))) as CaseTemplateRow[];
     const runRows = (query.projectId
       ? await app.appContext.db
           .select()
           .from(runsTable)
-          .where(eq(runsTable.projectId, query.projectId))
-      : await app.appContext.db.select().from(runsTable)) as RunRow[];
+          .where(and(eq(runsTable.projectId, query.projectId), eq(runsTable.tenantId, auth.tenant.id)))
+      : await app.appContext.db
+          .select()
+          .from(runsTable)
+          .where(eq(runsTable.tenantId, auth.tenant.id))) as RunRow[];
 
     return BenchmarkSummarySchema.parse(
       buildBenchmarkSummary({
@@ -664,31 +691,41 @@ export const registerRunRoutes = (app: AppFastify): void => {
     );
   });
 
-  app.get("/api/cases", async (request) => {
+  app.get("/api/cases", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listCasesQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found" });
+      }
+    }
     const rows = (query.projectId
       ? await app.appContext.db
           .select()
           .from(caseTemplatesTable)
-          .where(eq(caseTemplatesTable.projectId, query.projectId))
+          .where(and(eq(caseTemplatesTable.projectId, query.projectId), eq(caseTemplatesTable.tenantId, auth.tenant.id)))
           .orderBy(desc(caseTemplatesTable.createdAt))
           .limit(query.limit)
       : await app.appContext.db
           .select()
           .from(caseTemplatesTable)
+          .where(eq(caseTemplatesTable.tenantId, auth.tenant.id))
           .orderBy(desc(caseTemplatesTable.createdAt))
           .limit(query.limit)) as CaseTemplateRow[];
     return rows.map(mapCaseTemplateRow);
   });
 
   app.post("/api/cases/extract", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const payload = extractCasesSchema.parse(request.body);
-    const runRows = await app.appContext.db
-      .select()
-      .from(runsTable)
-      .where(eq(runsTable.id, payload.runId))
-      .limit(1);
-    const runRow = runRows[0] as RunRow | undefined;
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, payload.runId);
     if (!runRow) {
       return reply.status(404).send({ error: "Run not found" });
     }
@@ -708,6 +745,10 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/cases/:caseId/replay", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     if (app.appContext.orchestrator.isBusy()) {
       return reply.status(409).send({
         error: `Runtime is busy with run ${app.appContext.orchestrator.getActiveRunId()}`
@@ -716,12 +757,7 @@ export const registerRunRoutes = (app: AppFastify): void => {
 
     const params = replayCaseParamsSchema.parse(request.params);
     const payload = replayCaseBodySchema.parse(request.body ?? {});
-    const caseRows = (await app.appContext.db
-      .select()
-      .from(caseTemplatesTable)
-      .where(eq(caseTemplatesTable.id, params.caseId))
-      .limit(1)) as CaseTemplateRow[];
-    const caseRow = caseRows[0];
+    const caseRow = await getTenantCaseRow(app.appContext.db, auth.tenant.id, params.caseId);
     if (!caseRow) {
       return reply.status(404).send({ error: "Case not found" });
     }
@@ -736,6 +772,10 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/runs/compare", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = compareRunsQuerySchema.parse(request.query);
     if (query.baseRunId === query.candidateRunId) {
       return reply.status(400).send({
@@ -744,8 +784,8 @@ export const registerRunRoutes = (app: AppFastify): void => {
     }
 
     const [baseContext, candidateContext] = await Promise.all([
-      loadRunAnalysisContext(app, query.baseRunId),
-      loadRunAnalysisContext(app, query.candidateRunId)
+      loadRunAnalysisContext(app, auth.tenant.id, query.baseRunId),
+      loadRunAnalysisContext(app, auth.tenant.id, query.candidateRunId)
     ]);
 
     if (!baseContext || !candidateContext) {
@@ -771,9 +811,14 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/cases/:caseId/repair-draft", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = replayCaseParamsSchema.parse(request.params);
     const payload = repairDraftBodySchema.parse(request.body ?? {});
     const context = await loadRepairDraftContext(app, {
+      tenantId: auth.tenant.id,
       caseId: params.caseId,
       runId: payload.runId
     });
@@ -799,6 +844,10 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/cases/:caseId/apply-repair-draft", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = replayCaseParamsSchema.parse(request.params);
     const payload = repairDraftBodySchema.parse(request.body ?? {});
     if (payload.replay && app.appContext.orchestrator.isBusy()) {
@@ -807,6 +856,7 @@ export const registerRunRoutes = (app: AppFastify): void => {
       });
     }
     const context = await loadRepairDraftContext(app, {
+      tenantId: auth.tenant.id,
       caseId: params.caseId,
       runId: payload.runId
     });
@@ -872,6 +922,10 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     if (app.appContext.orchestrator.isBusy()) {
       return reply.status(409).send({
         error: `Runtime is busy with run ${app.appContext.orchestrator.getActiveRunId()}`
@@ -905,16 +959,17 @@ export const registerRunRoutes = (app: AppFastify): void => {
       });
     }
     const headed = payload.headed || payload.manualTakeover;
-    const projectRows = await app.appContext.db
-      .select()
-      .from(projectsTable)
-      .where(eq(projectsTable.id, payload.projectId))
-      .limit(1);
-    if (!projectRows[0]) {
+    const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, payload.projectId);
+    if (!projectRow) {
       return reply.status(404).send({ error: "Project not found" });
     }
 
     if (username || password) {
+      if (!hasMinimumRole(auth, "owner")) {
+        return reply.status(403).send({
+          error: "Only tenant owners can update stored project credentials."
+        });
+      }
       const encryptedUsername = username
         ? encryptText(username, env.CREDENTIAL_MASTER_KEY)
         : undefined;
@@ -950,6 +1005,7 @@ export const registerRunRoutes = (app: AppFastify): void => {
       saveSession: payload.saveSession
     });
     const runRow = await insertRun(app, {
+      tenantId: auth.tenant.id,
       projectId: payload.projectId,
       mode: payload.mode,
       targetUrl: payload.targetUrl,
@@ -968,6 +1024,10 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs/:runId/rerun", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     if (app.appContext.orchestrator.isBusy()) {
       return reply.status(409).send({
         error: `Runtime is busy with run ${app.appContext.orchestrator.getActiveRunId()}`
@@ -976,12 +1036,7 @@ export const registerRunRoutes = (app: AppFastify): void => {
 
     const params = runIdParamsSchema.parse(request.params);
     const payload = rerunRunBodySchema.parse(request.body ?? {});
-    const runRows = (await app.appContext.db
-      .select()
-      .from(runsTable)
-      .where(eq(runsTable.id, params.runId))
-      .limit(1)) as RunRow[];
-    const sourceRunRow = runRows[0];
+    const sourceRunRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
     if (!sourceRunRow) {
       return reply.status(404).send({ error: "Run not found" });
     }
@@ -991,7 +1046,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs/:runId/control", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const payload = runControlSchema.parse(request.body);
 
     switch (payload.command) {
@@ -1041,15 +1104,7 @@ export const registerRunRoutes = (app: AppFastify): void => {
             error: "Run is not active or execution mode cannot be changed right now."
           });
         }
-        const runRows = await app.appContext.db
-          .select()
-          .from(runsTable)
-          .where(eq(runsTable.id, params.runId))
-          .limit(1);
-        const runRow = runRows[0] as RunRow | undefined;
-        if (runRow) {
-          await persistExecutionMode(app, runRow, payload.executionMode);
-        }
+        await persistExecutionMode(app, runRow, payload.executionMode);
         return {
           ok: true,
           runId: params.runId,
@@ -1088,7 +1143,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs/:runId/resume", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const resumed = app.appContext.orchestrator.resumeRun(params.runId);
     if (!resumed) {
       return reply.status(409).send({
@@ -1100,7 +1163,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs/:runId/pause", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const paused = app.appContext.orchestrator.pauseRun(params.runId);
     if (!paused) {
       return reply.status(409).send({
@@ -1112,7 +1183,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs/:runId/abort", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const aborted = app.appContext.orchestrator.abortRun(params.runId);
     if (!aborted) {
       return reply.status(409).send({
@@ -1124,7 +1203,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs/:runId/bring-to-front", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const focused = await app.appContext.orchestrator.bringBrowserToFront(params.runId);
     if (!focused) {
       return reply.status(409).send({
@@ -1136,7 +1223,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs/:runId/execution-mode", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const payload = executionModeSchema.parse(request.body);
     const switched = app.appContext.orchestrator.switchExecutionMode(
       params.runId,
@@ -1147,20 +1242,20 @@ export const registerRunRoutes = (app: AppFastify): void => {
         error: "Run is not active or execution mode cannot be changed right now."
       });
     }
-    const runRows = await app.appContext.db
-      .select()
-      .from(runsTable)
-      .where(eq(runsTable.id, params.runId))
-      .limit(1);
-    const runRow = runRows[0] as RunRow | undefined;
-    if (runRow) {
-      await persistExecutionMode(app, runRow, payload.executionMode as ExecutionMode);
-    }
+    await persistExecutionMode(app, runRow, payload.executionMode as ExecutionMode);
     return { ok: true, runId: params.runId, executionMode: payload.executionMode };
   });
 
   app.post("/api/runs/:runId/draft/approve", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const payload = draftActionSchema.parse(request.body ?? {});
     const approved = app.appContext.orchestrator.approveDraft(params.runId, payload.action);
     if (!approved) {
@@ -1172,7 +1267,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/runs/:runId/draft/skip", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const skipped = app.appContext.orchestrator.skipDraft(params.runId);
     if (!skipped) {
       return reply.status(409).send({
@@ -1183,9 +1286,13 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/runs/:runId/diagnosis", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
     const query = diagnosisQuerySchema.parse(request.query);
-    const context = await loadRunAnalysisContext(app, params.runId);
+    const context = await loadRunAnalysisContext(app, auth.tenant.id, params.runId);
     if (!context) {
       return reply.status(404).send({ error: "Run not found" });
     }
@@ -1200,13 +1307,12 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/runs/:runId", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
-    const runRows = await app.appContext.db
-      .select()
-      .from(runsTable)
-      .where(eq(runsTable.id, params.runId))
-      .limit(1);
-    const runRow = runRows[0] as RunRow | undefined;
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
     if (!runRow) {
       return reply.status(404).send({ error: "Run not found" });
     }
@@ -1219,8 +1325,16 @@ export const registerRunRoutes = (app: AppFastify): void => {
     return mergeRunExecutionMode(enrichedRun, getOverlayExecutionMode(app, params.runId));
   });
 
-  app.get("/api/runs/:runId/steps", async (request) => {
+  app.get("/api/runs/:runId/steps", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const rows = (await app.appContext.db
       .select()
       .from(stepsTable)
@@ -1229,8 +1343,16 @@ export const registerRunRoutes = (app: AppFastify): void => {
     return rows.map(mapStepRow);
   });
 
-  app.get("/api/runs/:runId/testcases", async (request) => {
+  app.get("/api/runs/:runId/testcases", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const rows = (await app.appContext.db
       .select()
       .from(testCasesTable)
@@ -1239,8 +1361,16 @@ export const registerRunRoutes = (app: AppFastify): void => {
     return rows.map(mapTestCaseRow);
   });
 
-  app.get("/api/runs/:runId/evidence", async (request) => {
+  app.get("/api/runs/:runId/evidence", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const evidence = await app.appContext.evidenceStore.readRunEvidence(params.runId);
     return (
       evidence ?? {
@@ -1253,14 +1383,30 @@ export const registerRunRoutes = (app: AppFastify): void => {
     );
   });
 
-  app.get("/api/runs/:runId/traffic", async (request) => {
+  app.get("/api/runs/:runId/traffic", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const evidence = await app.appContext.evidenceStore.readRunEvidence(params.runId);
     return evidence?.network ?? [];
   });
 
   app.get("/api/runs/:runId/steps/:stepRef/traffic", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runStepParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const stepIndex = await resolveStepIndex(app, params.runId, params.stepRef);
     if (!stepIndex) {
       return reply.status(404).send({ error: "Step not found" });
@@ -1269,8 +1415,16 @@ export const registerRunRoutes = (app: AppFastify): void => {
     return (evidence?.network ?? []).filter((entry) => entry.stepIndex === stepIndex);
   });
 
-  app.get("/api/runs/:runId/cases", async (request) => {
+  app.get("/api/runs/:runId/cases", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const rows = (await app.appContext.db
       .select()
       .from(caseTemplatesTable)
@@ -1280,7 +1434,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/runs/:runId/report", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const rows = await app.appContext.db
       .select()
       .from(reportsTable)
@@ -1299,7 +1461,15 @@ export const registerRunRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/runs/:runId/stream", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getTenantRunRow(app.appContext.db, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Run not found" });
+    }
     const clientId = nanoid();
 
     reply.hijack();

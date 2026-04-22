@@ -1,452 +1,1254 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useI18n } from "../i18n/I18nProvider";
+import { PlatformAdvancedPanel } from "../platform/PlatformAdvancedPanel";
+import { PlatformFormField } from "../platform/PlatformFormField";
+import { PlatformMetricCard } from "../platform/PlatformMetricCard";
+import { PlatformPageShell } from "../platform/PlatformPageShell";
+import { PlatformSectionHeader } from "../platform/PlatformSectionHeader";
 
 type PickFn = (english: string, chinese: string) => string;
 
-type CapabilityCard = {
-  title: string;
-  summary: string;
-  status: "existing" | "missing" | "next";
+type BuilderPreset = "internal-qa" | "release-readiness" | "full-control-plane";
+type DeploymentMode = "single-host-ssh" | "internal-preview" | "private-prod";
+type AccentTone = "sky" | "emerald" | "rose";
+type ModuleKey =
+  | "functional"
+  | "benchmark"
+  | "load"
+  | "gates"
+  | "ops"
+  | "backups"
+  | "environments"
+  | "desktop";
+
+type BuilderState = {
+  preset: BuilderPreset;
+  platformName: string;
+  shortName: string;
+  industry: string;
+  tagline: string;
+  tenantName: string;
+  domain: string;
+  host: string;
+  sshUser: string;
+  repoUrl: string;
+  gitRef: string;
+  certEmail: string;
+  deploymentMode: DeploymentMode;
+  accent: AccentTone;
+  modules: ModuleKey[];
+  metricsEnabled: boolean;
+  alertsEnabled: boolean;
+  backupsEnabled: boolean;
+  desktopEnabled: boolean;
 };
 
-type PlatformLane = {
-  eyebrow: string;
-  title: string;
-  summary: string;
-  bullets: string[];
+type ModuleDefinition = {
+  key: ModuleKey;
+  title: { en: string; zh: string };
+  summary: { en: string; zh: string };
+  lane: { en: string; zh: string };
 };
 
-type ArchitectureLayer = {
-  title: string;
-  summary: string;
-  items: string[];
+type PresetDefinition = {
+  key: BuilderPreset;
+  title: { en: string; zh: string };
+  summary: { en: string; zh: string };
+  config: BuilderState;
 };
 
-const toneClass = (status: CapabilityCard["status"]): string => {
-  switch (status) {
-    case "existing":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
-    case "next":
-      return "border-sky-200 bg-sky-50 text-sky-700";
+type GeneratedBundle = {
+  manifestJson: string;
+  envTemplate: string;
+  bootstrapCommand: string;
+  updateCommand: string;
+  smokeCommand: string;
+};
+
+const builderStorageKey = "qpilot:platform-builder-v1";
+
+const moduleCatalog: ModuleDefinition[] = [
+  {
+    key: "functional",
+    title: { en: "Functional Lab", zh: "功能实验室" },
+    summary: {
+      en: "Interactive browser runs, evidence capture, replay, and repair.",
+      zh: "交互式浏览器运行、证据采集、回放与修复。"
+    },
+    lane: { en: "Execution", zh: "执行" }
+  },
+  {
+    key: "benchmark",
+    title: { en: "Benchmark Cockpit", zh: "基准驾驶舱" },
+    summary: {
+      en: "Scenario comparison, regression checks, and case baselines.",
+      zh: "场景对比、回归检查与基准基线。"
+    },
+    lane: { en: "Execution", zh: "执行" }
+  },
+  {
+    key: "load",
+    title: { en: "Load Studio", zh: "压测工作台" },
+    summary: {
+      en: "Profiles, injector pools, capacity runs, and SLO evidence.",
+      zh: "压测配置、注入池、容量运行与 SLO 证据。"
+    },
+    lane: { en: "Control", zh: "控制" }
+  },
+  {
+    key: "gates",
+    title: { en: "Gate Center", zh: "门禁中心" },
+    summary: {
+      en: "Release verdicts, approvals, waivers, and policy packs.",
+      zh: "发布结论、审批、豁免与策略包。"
+    },
+    lane: { en: "Control", zh: "控制" }
+  },
+  {
+    key: "ops",
+    title: { en: "Ops Summary", zh: "运维总览" },
+    summary: {
+      en: "Readiness, dependencies, alerts, and backup health.",
+      zh: "就绪状态、依赖、告警与备份健康。"
+    },
+    lane: { en: "Infrastructure", zh: "基础设施" }
+  },
+  {
+    key: "backups",
+    title: { en: "Backup Recovery", zh: "备份恢复" },
+    summary: {
+      en: "Snapshot control, restore preflight, and recovery windows.",
+      zh: "快照控制、恢复预检与维护窗口。"
+    },
+    lane: { en: "Infrastructure", zh: "基础设施" }
+  },
+  {
+    key: "environments",
+    title: { en: "Environment Registry", zh: "环境注册" },
+    summary: {
+      en: "Targets, topology, service map, and injector assignment.",
+      zh: "目标环境、拓扑、服务地图与注入分配。"
+    },
+    lane: { en: "Infrastructure", zh: "基础设施" }
+  },
+  {
+    key: "desktop",
+    title: { en: "Desktop Companion", zh: "桌面伴随端" },
+    summary: {
+      en: "Operator shortcuts, run control dock, and local pairing mode.",
+      zh: "操作快捷入口、运行控制坞与本地协作模式。"
+    },
+    lane: { en: "Blueprint", zh: "蓝图" }
+  }
+];
+
+const presetCatalog: PresetDefinition[] = [
+  {
+    key: "internal-qa",
+    title: { en: "Internal QA Platform", zh: "内部 QA 平台" },
+    summary: {
+      en: "Fastest path for teams that mainly need browser runs, reports, and environments.",
+      zh: "适合主要关注浏览器运行、报告和环境管理的团队。"
+    },
+    config: {
+      preset: "internal-qa",
+      platformName: "QPilot QA Console",
+      shortName: "QQC",
+      industry: "Internal tooling",
+      tagline: "Fast browser validation, replay, and evidence in one internal workspace.",
+      tenantName: "Delivery Team",
+      domain: "qa.yourcompany.com",
+      host: "203.0.113.10",
+      sshUser: "ubuntu",
+      repoUrl: "git@github.com:your-org/QPilot-Studio.git",
+      gitRef: "main",
+      certEmail: "ops@yourcompany.com",
+      deploymentMode: "internal-preview",
+      accent: "sky",
+      modules: ["functional", "benchmark", "environments", "ops"],
+      metricsEnabled: true,
+      alertsEnabled: false,
+      backupsEnabled: false,
+      desktopEnabled: false
+    }
+  },
+  {
+    key: "release-readiness",
+    title: { en: "Release Readiness Hub", zh: "发布就绪中枢" },
+    summary: {
+      en: "Best when your goal is one release verdict combining runs, regressions, and approvals.",
+      zh: "适合需要把运行结果、回归与审批汇成一个发布结论的团队。"
+    },
+    config: {
+      preset: "release-readiness",
+      platformName: "QPilot Release Hub",
+      shortName: "QRH",
+      industry: "SaaS / B2B delivery",
+      tagline: "One release command surface for verdicts, blockers, waivers, and evidence.",
+      tenantName: "Release Office",
+      domain: "release.yourcompany.com",
+      host: "203.0.113.20",
+      sshUser: "ubuntu",
+      repoUrl: "git@github.com:your-org/QPilot-Studio.git",
+      gitRef: "main",
+      certEmail: "release-ops@yourcompany.com",
+      deploymentMode: "single-host-ssh",
+      accent: "emerald",
+      modules: ["functional", "benchmark", "gates", "ops", "backups", "environments"],
+      metricsEnabled: true,
+      alertsEnabled: true,
+      backupsEnabled: true,
+      desktopEnabled: false
+    }
+  },
+  {
+    key: "full-control-plane",
+    title: { en: "Full Testing Control Plane", zh: "完整测试控制平面" },
+    summary: {
+      en: "The most complete package: browser, benchmark, load, gates, ops, and recovery.",
+      zh: "最完整的一套：浏览器、基准、压测、门禁、运维和恢复全部接入。"
+    },
+    config: {
+      preset: "full-control-plane",
+      platformName: "QPilot Control Plane",
+      shortName: "QCP",
+      industry: "Platform engineering",
+      tagline: "A precision control plane for correctness, stability, and capacity before every release.",
+      tenantName: "Platform Engineering",
+      domain: "control.yourcompany.com",
+      host: "203.0.113.30",
+      sshUser: "ubuntu",
+      repoUrl: "git@github.com:your-org/QPilot-Studio.git",
+      gitRef: "main",
+      certEmail: "platform-ops@yourcompany.com",
+      deploymentMode: "private-prod",
+      accent: "rose",
+      modules: [
+        "functional",
+        "benchmark",
+        "load",
+        "gates",
+        "ops",
+        "backups",
+        "environments",
+        "desktop"
+      ],
+      metricsEnabled: true,
+      alertsEnabled: true,
+      backupsEnabled: true,
+      desktopEnabled: true
+    }
+  }
+];
+
+const slugify = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "") || "qpilot-platform";
+
+const ensureUniqueModules = (modules: ModuleKey[], desktopEnabled: boolean): ModuleKey[] => {
+  const set = new Set(modules);
+  if (desktopEnabled) {
+    set.add("desktop");
+  } else {
+    set.delete("desktop");
+  }
+  return moduleCatalog.map((module) => module.key).filter((key) => set.has(key));
+};
+
+const buildRuntimeEnvTemplate = (state: BuilderState): string => {
+  const origin = state.domain ? `https://${state.domain}` : "https://your-domain.example.com";
+  const lines = [
+    `# ${state.platformName} runtime configuration`,
+    "NODE_ENV=production",
+    "HOST=127.0.0.1",
+    "PORT=8787",
+    `CORS_ORIGIN=${origin}`,
+    "AUTH_SECURE_COOKIES=true",
+    "OPENAI_API_KEY=<replace-me>",
+    "CREDENTIAL_MASTER_KEY=<64-char-hex>",
+    state.metricsEnabled ? "METRICS_BEARER_TOKEN=<replace-me>" : "# METRICS_BEARER_TOKEN=<optional>",
+    `OPS_ALERTS_ENABLED=${state.alertsEnabled ? "true" : "false"}`,
+    state.alertsEnabled ? "OPS_ALERT_WEBHOOK_URL=<replace-me>" : "# OPS_ALERT_WEBHOOK_URL=<optional>",
+    "OPS_ALERT_POLL_INTERVAL_MS=60000",
+    "OPS_ALERT_COOLDOWN_MS=900000"
+  ];
+
+  if (state.backupsEnabled) {
+    lines.push(
+      "BACKUP_SHARED_ROOT=/opt/qpilot-studio/shared",
+      "BACKUP_OPS_ROOT=/opt/qpilot-studio/ops",
+      "BACKUP_S3_ENDPOINT=<replace-me>",
+      "BACKUP_S3_REGION=<replace-me>",
+      "BACKUP_S3_BUCKET=<replace-me>",
+      "BACKUP_S3_PREFIX=backups",
+      "BACKUP_S3_ACCESS_KEY_ID=<replace-me>",
+      "BACKUP_S3_SECRET_ACCESS_KEY=<replace-me>",
+      "BACKUP_ENCRYPTION_KEY=<replace-me>",
+      "BACKUP_RETENTION_DAYS=14",
+      "BACKUP_STALE_AFTER_HOURS=36"
+    );
+  } else {
+    lines.push(
+      "# BACKUP_S3_BUCKET=<optional>",
+      "# BACKUP_ENCRYPTION_KEY=<optional>",
+      "# BACKUP_RETENTION_DAYS=14",
+      "# BACKUP_STALE_AFTER_HOURS=36"
+    );
+  }
+
+  return lines.join("\n");
+};
+
+const buildBootstrapCommand = (state: BuilderState, envPath: string): string => {
+  const ref = state.gitRef || "main";
+  return [
+    "pnpm deploy:bootstrap -- `",
+    `  --host ${state.host || "YOUR_SERVER_IP"} \``,
+    `  --ssh-user ${state.sshUser || "ubuntu"} \``,
+    `  --domain ${state.domain || "platform.example.com"} \``,
+    `  --repo-url ${state.repoUrl || "git@github.com:your-org/QPilot-Studio.git"} \``,
+    `  --ref ${ref} \``,
+    `  --cert-email ${state.certEmail || "ops@example.com"} \``,
+    `  --runtime-env-source ${envPath}`
+  ].join("\n");
+};
+
+const buildUpdateCommand = (state: BuilderState, envPath: string): string => {
+  const ref = state.gitRef || "main";
+  return [
+    "pnpm deploy:update -- `",
+    `  --host ${state.host || "YOUR_SERVER_IP"} \``,
+    `  --ssh-user ${state.sshUser || "ubuntu"} \``,
+    `  --ref ${ref} \``,
+    `  --domain ${state.domain || "platform.example.com"} \``,
+    `  --runtime-env-source ${envPath}`
+  ].join("\n");
+};
+
+const buildSmokeCommand = (state: BuilderState): string => {
+  const baseUrl = state.domain ? `https://${state.domain}` : "https://platform.example.com";
+  return [
+    "pnpm deploy:smoke -- `",
+    `  --base-url ${baseUrl} \``,
+    "  --metrics-token <METRICS_BEARER_TOKEN>"
+  ].join("\n");
+};
+
+const buildGeneratedBundle = (state: BuilderState, pick: PickFn): GeneratedBundle => {
+  const slug = slugify(state.platformName);
+  const envPath = `C:\\deploy\\${slug}.env.production`;
+  const selectedModules = moduleCatalog.filter((module) => state.modules.includes(module.key));
+  const manifest = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    platform: {
+      name: state.platformName,
+      shortName: state.shortName,
+      tagline: state.tagline,
+      industry: state.industry,
+      tenantName: state.tenantName,
+      preset: state.preset,
+      accent: state.accent
+    },
+    modules: selectedModules.map((module) => ({
+      key: module.key,
+      lane: module.lane.en,
+      title: module.title.en
+    })),
+    deployment: {
+      mode: state.deploymentMode,
+      domain: state.domain,
+      host: state.host,
+      sshUser: state.sshUser,
+      repoUrl: state.repoUrl,
+      gitRef: state.gitRef,
+      certEmail: state.certEmail,
+      runtimeEnvPath: envPath
+    },
+    operations: {
+      metricsEnabled: state.metricsEnabled,
+      alertsEnabled: state.alertsEnabled,
+      backupsEnabled: state.backupsEnabled,
+      desktopEnabled: state.desktopEnabled
+    },
+    launchChecklist: [
+      pick("Prepare DNS and SSH access.", "先准备好 DNS 和 SSH 访问。"),
+      pick("Write the runtime env file before bootstrap.", "部署前先写好 runtime env 文件。"),
+      pick("Run smoke verification after every bootstrap or update.", "每次首装或更新后都执行 smoke 验证。")
+    ]
+  };
+
+  return {
+    manifestJson: JSON.stringify(manifest, null, 2),
+    envTemplate: buildRuntimeEnvTemplate(state),
+    bootstrapCommand: buildBootstrapCommand(state, envPath),
+    updateCommand: buildUpdateCommand(state, envPath),
+    smokeCommand: buildSmokeCommand(state)
+  };
+};
+
+const getDeploymentModeLabel = (
+  mode: DeploymentMode,
+  pick: PickFn
+): { title: string; summary: string } => {
+  switch (mode) {
+    case "internal-preview":
+      return {
+        title: pick("Internal preview", "内部预览"),
+        summary: pick(
+          "Leanest setup for internal teams. Metrics stay on, but alerts and backups can remain off.",
+          "最轻量的内部团队方案，保留指标，告警和备份可以后开。"
+        )
+      };
+    case "private-prod":
+      return {
+        title: pick("Private production", "私有生产"),
+        summary: pick(
+          "Full operations posture with backups, alerts, and stricter public-surface controls.",
+          "完整运维姿态，包含备份、告警和更严格的公网边界。"
+        )
+      };
     default:
-      return "border-amber-200 bg-amber-50 text-amber-800";
+      return {
+        title: pick("Single host SSH", "单机 SSH 部署"),
+        summary: pick(
+          "The default public deployment model already supported by this repo.",
+          "当前仓库已经支持的默认公网部署模型。"
+        )
+      };
   }
 };
 
-const statusLabel = (status: CapabilityCard["status"], pick: PickFn): string => {
-  switch (status) {
-    case "existing":
-      return pick("Already In Product", "当前已有");
-    case "next":
-      return pick("Recommended Next", "下一步优先");
-    default:
-      return pick("Missing For Platform", "平台级仍缺");
+const getDeploymentModeOptions = (pick: PickFn): Array<{
+  value: DeploymentMode;
+  label: string;
+}> => [
+  { value: "single-host-ssh", label: pick("Single host SSH", "单机 SSH") },
+  { value: "internal-preview", label: pick("Internal preview", "内部预览") },
+  { value: "private-prod", label: pick("Private production", "私有生产") }
+];
+
+const downloadTextFile = (filename: string, content: string, mimeType: string): void => {
+  if (typeof window === "undefined") {
+    return;
   }
+
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 };
 
 export const PlatformBlueprintPage = () => {
-  const { pick } = useI18n();
+  const { pick, language } = useI18n();
+  const defaultPreset = presetCatalog[2] ?? presetCatalog[0];
 
-  const capabilityCards = useMemo<CapabilityCard[]>(
-    () => [
-      {
-        title: pick("AI browser functional runs", "AI 浏览器功能回归"),
-        summary: pick(
-          "The current product already owns browser execution, evidence capture, human diagnosis, replay, benchmark scenarios, rerun, and diff.",
-          "当前产品已经具备浏览器执行、证据采集、人话诊断、回放、benchmark 场景、重跑和 diff。"
-        ),
-        status: "existing"
-      },
-      {
-        title: pick("Load and capacity studio", "压测与容量工作台"),
-        summary: pick(
-          "This is the biggest platform gap. There is no load profile, no traffic injector pool, no SLA view, and no release gate across concurrency levels yet.",
-          "这是当前离整套测试平台最远的一块：还没有负载配置、压测执行池、SLA 看板和并发级别的发布门禁。"
-        ),
-        status: "missing"
-      },
-      {
-        title: pick("Unified release gate", "统一发布门禁"),
-        summary: pick(
-          "The next product milestone should join functional, benchmark, and load signals into one release verdict instead of leaving them as separate pages.",
-          "下一阶段最值得做的是把功能、benchmark、压测信号合成一套统一发布结论，而不是散落在不同页面。"
-        ),
-        status: "next"
-      }
-    ],
-    [pick]
+  if (!defaultPreset) {
+    return null;
+  }
+  const [builder, setBuilder] = useState<BuilderState>(defaultPreset.config);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const saved = window.localStorage.getItem(builderStorageKey);
+    if (!saved) {
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(saved) as Partial<BuilderState>;
+      setBuilder((current) => ({
+        ...current,
+        ...parsed,
+        modules: ensureUniqueModules(
+          Array.isArray(parsed.modules) ? parsed.modules : current.modules,
+          parsed.desktopEnabled ?? current.desktopEnabled
+        )
+      }));
+    } catch {
+      // Ignore invalid local state and keep the default preset.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(builderStorageKey, JSON.stringify(builder));
+  }, [builder]);
+
+  useEffect(() => {
+    if (!copiedKey) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => setCopiedKey(null), 1800);
+    return () => window.clearTimeout(timeoutId);
+  }, [copiedKey]);
+
+  const selectedModules = useMemo(
+    () => moduleCatalog.filter((module) => builder.modules.includes(module.key)),
+    [builder.modules]
   );
 
-  const platformLanes = useMemo<PlatformLane[]>(
-    () => [
-      {
-        eyebrow: pick("1. Control Tower", "1. 控制塔"),
-        title: pick("Single place to see risk before release", "发布前统一看风险的总控台"),
-        summary: pick(
-          "One dashboard should answer: did the core user flows pass, did benchmarks regress, did service latency hold, and can this build ship.",
-          "总控台要回答四件事：核心用户路径过没过、benchmark 有没有回归、服务延迟稳不稳、这版能不能发。"
-        ),
-        bullets: [
-          pick("Release readiness score with fail-open and fail-close rules", "发布就绪分数，支持 fail-open / fail-close 规则"),
-          pick("Cross-module health strip: functional, benchmark, load, reliability", "跨模块健康带：功能、benchmark、压测、稳定性"),
-          pick("One-click jump into the failing scenario, API, or environment", "一键跳进失败场景、接口或环境")
-        ]
-      },
-      {
-        eyebrow: pick("2. Functional Lab", "2. 功能实验室"),
-        title: pick("Browser journeys, login chains, and guided repair", "浏览器链路、登录流程和修复闭环"),
-        summary: pick(
-          "This is your current strongest area and should remain the product anchor rather than being diluted by generic load dashboards.",
-          "这是你现在最强的能力，应该继续做成平台锚点，而不是被泛化压测面板稀释掉。"
-        ),
-        bullets: [
-          pick("Run live detail, report, rerun, compare, benchmark scenario cockpit", "实时详情、报告、重跑、对比、benchmark 场景工作台"),
-          pick("Template extraction, replay, repair draft, manual takeover", "模板提取、回放、修复草案、人工接管"),
-          pick("Structured stage and memory for planner, refiner, verifier, halt", "规划、收敛、验证、停机共享的结构化 stage/memory")
-        ]
-      },
-      {
-        eyebrow: pick("3. Load Studio", "3. 压测工作台"),
-        title: pick("Capacity, latency, and degradation under traffic", "并发、延迟和退化行为的专属工作台"),
-        summary: pick(
-          "Load should become a first-class citizen with scenario profiles, environment targeting, injector pools, SLO assertions, and replayable evidence.",
-          "压测要成为一等公民：有场景配置、环境选择、压测执行池、SLO 断言和可复盘证据。"
-        ),
-        bullets: [
-          pick("Profile builder: ramp-up, steady-state, spike, soak, breakpoint search", "压测配置器：爬坡、稳态、突刺、耐久、拐点搜索"),
-          pick("Engine adapters: k6 for API load, Playwright micro-browser load, synthetic workflow mix", "执行引擎适配：k6 API 压测、Playwright 微量浏览器压测、混合工作流"),
-          pick("SLO views: p50/p95/p99, error rate, saturation, business throughput", "SLO 视图：p50/p95/p99、错误率、饱和度、业务吞吐")
-        ]
-      },
-      {
-        eyebrow: pick("4. Gate Center", "4. 门禁中心"),
-        title: pick("Turn evidence into release decisions", "把证据转成发布决策"),
-        summary: pick(
-          "A real test platform should end in a verdict, not just in a report. Gate Center is where checks, thresholds, waivers, and approvals meet.",
-          "真正的平台不是停在报告，而是落到结论。门禁中心要把检查、阈值、豁免和审批汇在一起。"
-        ),
-        bullets: [
-          pick("Policy packs by product area, environment, and release ring", "按产品线、环境、发布环分层的门禁策略包"),
-          pick("Waiver workflow with audit trail and expiration", "带审计轨迹和到期时间的豁免流程"),
-          pick("Webhook, CI, and issue-tracker outputs for actionability", "连接 CI、Webhook、缺陷系统，直接可执行")
-        ]
-      }
-    ],
-    [pick]
+  const deploymentMode = useMemo(
+    () => getDeploymentModeLabel(builder.deploymentMode, pick),
+    [builder.deploymentMode, pick]
   );
 
-  const architectureLayers = useMemo<ArchitectureLayer[]>(
-    () => [
-      {
-        title: pick("Experience Layer", "体验层"),
-        summary: pick(
-          "Keep one surface, but split the jobs clearly: control tower, functional lab, benchmark cockpit, load studio, evidence hub, gate center.",
-          "保持一个产品入口，但把职责拆清：控制塔、功能实验室、benchmark 工作台、压测工作台、证据中心、门禁中心。"
-        ),
-        items: [
-          pick("React web console and desktop cockpit", "React Web 控制台和桌面 cockpit"),
-          pick("Role-based entry views for QA, dev, release manager", "按 QA、研发、发布负责人分角色视图"),
-          pick("Scenario, service, and release-centric navigation", "按场景、服务、发布三种视角导航")
-        ]
-      },
-      {
-        title: pick("Control Plane", "控制面"),
-        summary: pick(
-          "This becomes the orchestration brain across all test types instead of only browser runs.",
-          "控制面要从“浏览器 run 调度器”升级成“全类型测试编排器”。"
-        ),
-        items: [
-          pick("Scheduler and queue for functional, benchmark, and load jobs", "统一调度功能、benchmark、压测任务的队列"),
-          pick("Scenario registry with versioned templates and load profiles", "带版本的场景注册表，包含模板和压测配置"),
-          pick("Policy engine for SLO, release gates, and environment rules", "SLO、发布门禁、环境规则的策略引擎")
-        ]
-      },
-      {
-        title: pick("Execution Plane", "执行面"),
-        summary: pick(
-          "Do not force one engine to solve every problem. The platform should run browser, API, and load engines side by side.",
-          "不要让一个执行器包打天下。浏览器、API、压测要并行成为不同执行平面。"
-        ),
-        items: [
-          pick("Browser agent runtime for real user journeys", "真实用户链路的浏览器 agent runtime"),
-          pick("API and synthetic runners for fast checks and contract probes", "快速检查和契约探测的 API / synthetic runner"),
-          pick("Load injectors and distributed worker pools for scale tests", "用于规模压测的 injector 和分布式 worker 池")
-        ]
-      },
-      {
-        title: pick("Evidence and Metrics Plane", "证据与指标面"),
-        summary: pick(
-          "A platform needs both forensic evidence and time-series metrics. Today you mostly own the first half.",
-          "整套平台既要取证能力，也要时间序列指标。你现在已经有前半部分，后半部分要补上。"
-        ),
-        items: [
-          pick("Artifacts: screenshot, video, DOM summary, step diff, report", "制品：截图、录像、DOM 摘要、step diff、报告"),
-          pick("Metrics TSDB for latency, throughput, error, saturation, Apdex", "时间序列指标库：延迟、吞吐、错误、饱和度、Apdex"),
-          pick("Correlation graph between runs, services, deploys, and incidents", "把 run、服务、发布、事故串起来的关联图")
-        ]
-      }
-    ],
-    [pick]
+  const generatedBundle = useMemo(() => buildGeneratedBundle(builder, pick), [builder, pick]);
+
+  const laneCounts = useMemo(() => {
+    return selectedModules.reduce<Record<string, number>>((accumulator, module) => {
+      accumulator[module.lane.en] = (accumulator[module.lane.en] ?? 0) + 1;
+      return accumulator;
+    }, {});
+  }, [selectedModules]);
+
+  const surfaceCards = useMemo(
+    () =>
+      selectedModules.map((module) => ({
+        key: module.key,
+        title: language === "zh-CN" ? module.title.zh : module.title.en,
+        summary: language === "zh-CN" ? module.summary.zh : module.summary.en,
+        lane: language === "zh-CN" ? module.lane.zh : module.lane.en
+      })),
+    [language, selectedModules]
   );
 
-  const roadmap = useMemo(
-    () => [
-      {
-        phase: pick("Phase 1", "阶段 1"),
-        title: pick("Load Studio MVP", "压测工作台 MVP"),
-        detail: pick(
-          "Add load profile CRUD, k6 adapter, run history, metric charts, and a release summary page.",
-          "先补压测配置管理、k6 适配器、运行历史、指标图表和基础发布摘要页。"
-        )
-      },
-      {
-        phase: pick("Phase 2", "阶段 2"),
-        title: pick("Unified release gate", "统一发布门禁"),
-        detail: pick(
-          "Join functional verdicts, benchmark regressions, and load SLO failures into one gate model.",
-          "把功能通过率、benchmark 回归和压测 SLO 一起汇成统一门禁模型。"
-        )
-      },
-      {
-        phase: pick("Phase 3", "阶段 3"),
-        title: pick("Environment and service map", "环境与服务地图"),
-        detail: pick(
-          "Track dependencies, release rings, service ownership, and blast radius across environments.",
-          "把环境、依赖服务、负责人、发布环和影响范围一起建模。"
-        )
-      },
-      {
-        phase: pick("Phase 4", "阶段 4"),
-        title: pick("Enterprise packaging", "企业级包装"),
-        detail: pick(
-          "Add audit log, approval workflow, RBAC, webhook, CI bridge, and private deployment story.",
-          "最后补审计日志、审批流、RBAC、Webhook、CI 集成和私有化部署方案。"
-        )
-      }
-    ],
-    [pick]
-  );
+  const handleFieldChange = <K extends keyof BuilderState>(
+    key: K,
+    value: BuilderState[K]
+  ) => {
+    setBuilder((current) => {
+      const next = { ...current, [key]: value };
+      return {
+        ...next,
+        modules: ensureUniqueModules(next.modules, next.desktopEnabled)
+      };
+    });
+  };
+
+  const handleApplyPreset = (presetKey: BuilderPreset) => {
+    const preset = presetCatalog.find((entry) => entry.key === presetKey);
+    if (!preset) {
+      return;
+    }
+
+    setBuilder(preset.config);
+  };
+
+  const toggleModule = (moduleKey: ModuleKey) => {
+    setBuilder((current) => {
+      const hasModule = current.modules.includes(moduleKey);
+      const modules = hasModule
+        ? current.modules.filter((key) => key !== moduleKey)
+        : [...current.modules, moduleKey];
+
+      const desktopEnabled =
+        moduleKey === "desktop" ? !hasModule : current.desktopEnabled;
+
+      return {
+        ...current,
+        desktopEnabled,
+        modules: ensureUniqueModules(modules, desktopEnabled)
+      };
+    });
+  };
+
+  const copyText = async (key: string, value: string) => {
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(value);
+    setCopiedKey(key);
+  };
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-[32px] border border-slate-200 bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_35%),linear-gradient(135deg,#ffffff,#f8fafc)] p-6 shadow-sm">
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_420px]">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.34em] text-slate-400">
-              {pick("Testing Platform Blueprint", "测试平台蓝图")}
-            </p>
-            <h2 className="mt-3 max-w-4xl text-3xl font-semibold tracking-tight text-slate-950">
-              {pick(
-                "Turn QPilot from a browser QA agent into a full testing control tower with functional, benchmark, and load intelligence.",
-                "把 QPilot 从浏览器 QA Agent 升级成一套覆盖功能、benchmark 和压测的统一测试控制塔。"
-              )}
-            </h2>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
-              {pick(
-                "The key product move is not to bolt on a generic load chart. It is to let every release answer one question in one place: are the flows correct, are they stable, and are they still safe under traffic.",
-                "关键不是再拼一个通用压测面板，而是让每次发布都能在一个地方回答：链路对不对、最近稳不稳、上量之后还能不能扛住。"
-              )}
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {capabilityCards.map((card) => (
-                <span
-                  key={card.title}
-                  className={`rounded-full border px-3 py-1 text-xs font-medium ${toneClass(card.status)}`}
-                >
-                  {statusLabel(card.status, pick)}
-                </span>
-              ))}
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              <Link
-                to="/platform/load"
-                className="rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+    <PlatformPageShell
+      badge={
+        <span className="console-data-pill px-4 py-2 text-[11px] font-medium uppercase tracking-[0.22em] text-slate-700">
+          {pick("Platform Builder", "平台构建器")}
+        </span>
+      }
+      projectLabel={
+        <span className="console-data-pill px-4 py-2 text-[11px] font-medium text-sky-700">
+          {pick("Configurable and deployable", "可配置且可部署")}
+        </span>
+      }
+      title={builder.platformName}
+      description={pick(
+        "Use this surface to package a new testing platform variant, choose the modules you want, and walk away with runtime env, deployment commands, and an exportable manifest.",
+        "在这里把你的测试平台重新打包成一套可配置产品，选好模块后直接拿走 runtime env、部署命令和可导出的配置清单。"
+      )}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              downloadTextFile(
+                `${slugify(builder.platformName)}.manifest.json`,
+                generatedBundle.manifestJson,
+                "application/json"
+              )
+            }
+            className="console-button-secondary text-sm"
+          >
+            {pick("Download manifest", "下载配置清单")}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              downloadTextFile(
+                `${slugify(builder.platformName)}.env.production`,
+                generatedBundle.envTemplate,
+                "text/plain"
+              )
+            }
+            className="console-button-subtle text-sm"
+          >
+            {pick("Download env template", "下载 env 模板")}
+          </button>
+          <Link to="/platform/ops" className="console-button-primary text-sm">
+            {pick("Open ops surface", "打开运维面板")}
+          </Link>
+        </>
+      }
+      metrics={
+        <>
+          <PlatformMetricCard
+            label={pick("Selected modules", "已选模块")}
+            value={selectedModules.length}
+            dense
+          />
+          <PlatformMetricCard
+            label={pick("Deployment mode", "部署模式")}
+            value={deploymentMode.title}
+            dense
+          />
+          <PlatformMetricCard
+            label={pick("Env lines", "Env 行数")}
+            value={generatedBundle.envTemplate.split("\n").length}
+            dense
+          />
+          <PlatformMetricCard
+            label={pick("Ops hardening", "运维强化")}
+            value={`${
+              [builder.metricsEnabled, builder.alertsEnabled, builder.backupsEnabled].filter(
+                Boolean
+              ).length
+            }/3`}
+            dense
+          />
+        </>
+      }
+      accent={builder.accent}
+    >
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,0.96fr)_minmax(0,1.04fr)]">
+        <section className="console-panel px-5 py-5">
+          <PlatformSectionHeader
+            eyebrow={pick("Configuration", "配置区")}
+            title={pick("Compose your platform package", "组合你的平台包")}
+            description={pick(
+              "Start from a preset, then tune product identity, surface modules, and deployment posture. Your choices persist locally on this browser.",
+              "先从一个预设开始，然后调整产品身份、功能模块和部署姿态。你改的内容会保存在当前浏览器本地。"
+            )}
+            actions={
+              <button
+                type="button"
+                onClick={() => handleApplyPreset(defaultPreset.key)}
+                className="console-button-secondary text-sm"
               >
-                {pick("Open Load Studio", "进入压测工作台")}
-              </Link>
+                {pick("Reset to full control plane", "重置为完整控制平面")}
+              </button>
+            }
+          />
+
+          <div className="mt-5 space-y-6">
+            <div>
+              <p className="font-data text-[11px] uppercase tracking-[0.28em] text-slate-400">
+                {pick("Recommended presets", "推荐预设")}
+              </p>
+              <div className="mt-3 grid gap-3">
+                {presetCatalog.map((preset) => {
+                  const active = builder.preset === preset.key;
+                  return (
+                    <button
+                      key={preset.key}
+                      type="button"
+                      onClick={() => handleApplyPreset(preset.key)}
+                      className={`w-full rounded-[22px] border px-4 py-4 text-left transition ${
+                        active
+                          ? "border-slate-950 bg-slate-950 text-white"
+                          : "border-slate-200 bg-slate-50 text-slate-900 hover:border-sky-300 hover:bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold">
+                          {language === "zh-CN" ? preset.title.zh : preset.title.en}
+                        </p>
+                        <span className="font-data text-[11px] uppercase tracking-[0.22em]">
+                          {active ? pick("Selected", "已选") : pick("Apply", "使用")}
+                        </span>
+                      </div>
+                      <p
+                        className={`mt-2 text-sm leading-6 ${
+                          active ? "text-slate-200" : "text-slate-600"
+                        }`}
+                      >
+                        {language === "zh-CN" ? preset.summary.zh : preset.summary.en}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <PlatformFormField
+                label={pick("Platform name", "平台名称")}
+                htmlFor="platform-name"
+                hint={pick("This drives the exported manifest and env filename.", "这会影响导出的 manifest 和 env 文件名。")}
+              >
+                <input
+                  id="platform-name"
+                  value={builder.platformName}
+                  onChange={(event) => handleFieldChange("platformName", event.target.value)}
+                  className="console-input"
+                />
+              </PlatformFormField>
+              <PlatformFormField
+                label={pick("Short name", "简称")}
+                htmlFor="platform-short-name"
+                hint={pick("Use a concise operator-facing label.", "适合给操作员看的短名称。")}
+              >
+                <input
+                  id="platform-short-name"
+                  value={builder.shortName}
+                  onChange={(event) => handleFieldChange("shortName", event.target.value)}
+                  className="console-input"
+                />
+              </PlatformFormField>
+              <PlatformFormField
+                label={pick("Industry / use case", "行业 / 使用场景")}
+                htmlFor="platform-industry"
+              >
+                <input
+                  id="platform-industry"
+                  value={builder.industry}
+                  onChange={(event) => handleFieldChange("industry", event.target.value)}
+                  className="console-input"
+                />
+              </PlatformFormField>
+              <PlatformFormField label={pick("Tenant label", "租户标签")} htmlFor="platform-tenant">
+                <input
+                  id="platform-tenant"
+                  value={builder.tenantName}
+                  onChange={(event) => handleFieldChange("tenantName", event.target.value)}
+                  className="console-input"
+                />
+              </PlatformFormField>
+            </div>
+
+            <PlatformFormField
+              label={pick("Operator tagline", "平台标语")}
+              htmlFor="platform-tagline"
+              hint={pick(
+                "Keep this short and operational. It appears in the live platform preview.",
+                "建议保持简洁和操作导向，这会出现在右侧的平台预览里。"
+              )}
+            >
+              <textarea
+                id="platform-tagline"
+                rows={3}
+                value={builder.tagline}
+                onChange={(event) => handleFieldChange("tagline", event.target.value)}
+                className="console-input"
+              />
+            </PlatformFormField>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <PlatformFormField label={pick("Public domain", "公网域名")} htmlFor="platform-domain">
+                <input
+                  id="platform-domain"
+                  value={builder.domain}
+                  onChange={(event) => handleFieldChange("domain", event.target.value)}
+                  className="console-input"
+                />
+              </PlatformFormField>
+              <PlatformFormField
+                label={pick("Deployment mode", "部署模式")}
+                htmlFor="platform-deploy-mode"
+              >
+                <select
+                  id="platform-deploy-mode"
+                  value={builder.deploymentMode}
+                  onChange={(event) =>
+                    handleFieldChange("deploymentMode", event.target.value as DeploymentMode)
+                  }
+                  className="console-input"
+                >
+                  {getDeploymentModeOptions(pick).map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </PlatformFormField>
+            </div>
+
+            <PlatformAdvancedPanel
+              open={advancedOpen}
+              onToggle={() => setAdvancedOpen((current) => !current)}
+              title={pick("Deployment rails", "部署参数")}
+              description={pick(
+                "Fill in the host and repo details once, then reuse the generated bootstrap and update commands.",
+                "把主机和仓库信息填好之后，右侧就能直接复用生成的 bootstrap 和 update 命令。"
+              )}
+              label={pick("Open deployment rails", "展开部署参数")}
+              hideLabel={pick("Hide deployment rails", "收起部署参数")}
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <PlatformFormField label={pick("Server host", "服务器 IP")} htmlFor="platform-host">
+                  <input
+                    id="platform-host"
+                    value={builder.host}
+                    onChange={(event) => handleFieldChange("host", event.target.value)}
+                    className="console-input"
+                  />
+                </PlatformFormField>
+                <PlatformFormField label={pick("SSH user", "SSH 用户")} htmlFor="platform-ssh-user">
+                  <input
+                    id="platform-ssh-user"
+                    value={builder.sshUser}
+                    onChange={(event) => handleFieldChange("sshUser", event.target.value)}
+                    className="console-input"
+                  />
+                </PlatformFormField>
+                <PlatformFormField
+                  label={pick("Repository URL", "仓库地址")}
+                  htmlFor="platform-repo-url"
+                >
+                  <input
+                    id="platform-repo-url"
+                    value={builder.repoUrl}
+                    onChange={(event) => handleFieldChange("repoUrl", event.target.value)}
+                    className="console-input"
+                  />
+                </PlatformFormField>
+                <PlatformFormField label={pick("Git ref", "Git 分支 / Ref")} htmlFor="platform-git-ref">
+                  <input
+                    id="platform-git-ref"
+                    value={builder.gitRef}
+                    onChange={(event) => handleFieldChange("gitRef", event.target.value)}
+                    className="console-input"
+                  />
+                </PlatformFormField>
+                <PlatformFormField
+                  label={pick("Certbot email", "证书邮箱")}
+                  htmlFor="platform-cert-email"
+                >
+                  <input
+                    id="platform-cert-email"
+                    value={builder.certEmail}
+                    onChange={(event) => handleFieldChange("certEmail", event.target.value)}
+                    className="console-input"
+                  />
+                </PlatformFormField>
+                <PlatformFormField label={pick("Accent tone", "强调色")} htmlFor="platform-accent">
+                  <select
+                    id="platform-accent"
+                    value={builder.accent}
+                    onChange={(event) =>
+                      handleFieldChange("accent", event.target.value as AccentTone)
+                    }
+                    className="console-input"
+                  >
+                    <option value="sky">{pick("Sky control", "冷蓝控制台")}</option>
+                    <option value="emerald">{pick("Emerald release", "翠绿发布中心")}</option>
+                    <option value="rose">{pick("Rose command", "玫红指挥台")}</option>
+                  </select>
+                </PlatformFormField>
+              </div>
+            </PlatformAdvancedPanel>
+
+            <div>
+              <p className="font-data text-[11px] uppercase tracking-[0.28em] text-slate-400">
+                {pick("Module surface", "模块组合")}
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {moduleCatalog.map((module) => {
+                  const active = builder.modules.includes(module.key);
+                  return (
+                    <button
+                      key={module.key}
+                      type="button"
+                      onClick={() => toggleModule(module.key)}
+                      className={`rounded-[24px] border px-4 py-4 text-left transition ${
+                        active
+                          ? "border-slate-950 bg-slate-950 text-white"
+                          : "border-slate-200 bg-white hover:border-sky-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {language === "zh-CN" ? module.title.zh : module.title.en}
+                          </p>
+                          <p
+                            className={`mt-1 text-xs uppercase tracking-[0.24em] ${
+                              active ? "text-slate-300" : "text-slate-400"
+                            }`}
+                          >
+                            {language === "zh-CN" ? module.lane.zh : module.lane.en}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-3 py-1 text-[11px] font-medium ${
+                            active ? "bg-white/12 text-white" : "bg-slate-100 text-slate-600"
+                          }`}
+                        >
+                          {active ? pick("Included", "已接入") : pick("Optional", "可选")}
+                        </span>
+                      </div>
+                      <p
+                        className={`mt-3 text-sm leading-6 ${
+                          active ? "text-slate-200" : "text-slate-600"
+                        }`}
+                      >
+                        {language === "zh-CN" ? module.summary.zh : module.summary.en}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <button
+                type="button"
+                onClick={() => handleFieldChange("metricsEnabled", !builder.metricsEnabled)}
+                className={`rounded-[20px] border px-4 py-4 text-left ${
+                  builder.metricsEnabled
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
+                }`}
+              >
+                <p className="text-sm font-semibold">{pick("Metrics", "指标监控")}</p>
+                <p className="mt-1 text-sm">
+                  {builder.metricsEnabled
+                    ? pick("Protected /metrics enabled", "受保护的 /metrics 已启用")
+                    : pick("No metrics token yet", "尚未开启 metrics token")}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFieldChange("alertsEnabled", !builder.alertsEnabled)}
+                className={`rounded-[20px] border px-4 py-4 text-left ${
+                  builder.alertsEnabled
+                    ? "border-amber-300 bg-amber-50 text-amber-900"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
+                }`}
+              >
+                <p className="text-sm font-semibold">{pick("Alerts", "告警")}</p>
+                <p className="mt-1 text-sm">
+                  {builder.alertsEnabled
+                    ? pick("Webhook alerts included", "已接入 Webhook 告警")
+                    : pick("Ops alerts disabled", "当前未开启运维告警")}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFieldChange("backupsEnabled", !builder.backupsEnabled)}
+                className={`rounded-[20px] border px-4 py-4 text-left ${
+                  builder.backupsEnabled
+                    ? "border-rose-300 bg-rose-50 text-rose-900"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
+                }`}
+              >
+                <p className="text-sm font-semibold">{pick("Backups", "备份恢复")}</p>
+                <p className="mt-1 text-sm">
+                  {builder.backupsEnabled
+                    ? pick("S3 backup rails included", "已纳入 S3 备份链路")
+                    : pick("Backups kept off for now", "当前先不启用备份")}
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFieldChange("desktopEnabled", !builder.desktopEnabled)}
+                className={`rounded-[20px] border px-4 py-4 text-left ${
+                  builder.desktopEnabled
+                    ? "border-sky-300 bg-sky-50 text-sky-900"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
+                }`}
+              >
+                <p className="text-sm font-semibold">{pick("Desktop", "桌面端")}</p>
+                <p className="mt-1 text-sm">
+                  {builder.desktopEnabled
+                    ? pick("Desktop companion included", "已包含桌面伴随端")
+                    : pick("Web-first deployment", "当前以 Web 部署为主")}
+                </p>
+              </button>
             </div>
           </div>
+        </section>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white/80 p-5 backdrop-blur">
-            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-              {pick("Platform North Star", "平台北极星")}
-            </p>
-            <div className="mt-4 grid gap-3">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-3xl font-semibold text-slate-950">1</p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {pick(
-                    "One release verdict per build, not five unrelated reports.",
-                    "每个构建只给一个发布结论，而不是五份互不相干的报告。"
-                  )}
-                </p>
+        <aside className="space-y-4 xl:sticky xl:top-4">
+          <section className="console-panel overflow-hidden px-5 py-5">
+            <PlatformSectionHeader
+              eyebrow={pick("Live preview", "实时预览")}
+              title={pick("Platform surface snapshot", "平台表面快照")}
+              description={pick(
+                "This preview shows what your packaged control plane emphasizes before you export anything.",
+                "这个预览会先把你打包后的控制平面重点表现出来，再决定是否导出。"
+              )}
+              variant="summary"
+              dense
+            />
+
+            <div className="mt-4 rounded-[28px] border border-slate-200 bg-[linear-gradient(160deg,rgba(11,20,35,1),rgba(16,28,50,0.96))] p-4 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-data text-[11px] uppercase tracking-[0.28em] text-sky-200/80">
+                    {builder.shortName || "QP"}
+                  </p>
+                  <h3 className="mt-2 text-2xl font-semibold tracking-tight">
+                    {builder.platformName}
+                  </h3>
+                  <p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">
+                    {builder.tagline}
+                  </p>
+                </div>
+                <span className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-slate-100">
+                  {deploymentMode.title}
+                </span>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-3xl font-semibold text-slate-950">3</p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {pick(
-                    "Three core signals in one graph: correctness, stability, capacity.",
-                    "把正确性、稳定性、容量三类信号统一进一张图。"
-                  )}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-3xl font-semibold text-slate-950">0</p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {pick(
-                    "Zero blind spots between user journey failures and service bottlenecks.",
-                    "用户链路失败和服务瓶颈之间不再出现盲区。"
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
-        {capabilityCards.map((card) => (
-          <article key={card.title} className="rounded-[28px] border border-slate-200 bg-white p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-slate-900">{card.title}</h3>
-              <span className={`rounded-full border px-3 py-1 text-[11px] font-medium ${toneClass(card.status)}`}>
-                {statusLabel(card.status, pick)}
-              </span>
-            </div>
-            <p className="mt-3 text-sm leading-7 text-slate-600">{card.summary}</p>
-          </article>
-        ))}
-      </div>
-
-      <div className="rounded-[32px] border border-slate-200 bg-white p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-              {pick("Proposed Product IA", "建议中的产品信息架构")}
-            </p>
-            <h3 className="mt-2 text-2xl font-semibold text-slate-950">
-              {pick("Five lanes, one testing platform", "五条产品主线，组成一套测试平台")}
-            </h3>
-          </div>
-          <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-600">
-            {pick("Current product maps mostly to lane 2 and part of lane 1", "当前产品主要落在第 2 条线，以及第 1 条线的一部分")}
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
-          {platformLanes.map((lane) => (
-            <article key={lane.title} className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
-              <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">{lane.eyebrow}</p>
-              <h4 className="mt-2 text-lg font-semibold text-slate-900">{lane.title}</h4>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{lane.summary}</p>
-              <div className="mt-4 space-y-2">
-                {lane.bullets.map((bullet) => (
-                  <div key={bullet} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                    {bullet}
-                  </div>
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {surfaceCards.map((card) => (
+                  <article
+                    key={card.key}
+                    className="rounded-[22px] border border-white/10 bg-white/5 px-4 py-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-semibold">{card.title}</p>
+                      <span className="rounded-full border border-white/12 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-slate-300">
+                        {card.lane}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-slate-300">{card.summary}</p>
+                  </article>
                 ))}
               </div>
-            </article>
-          ))}
-        </div>
-      </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_380px]">
-        <div className="rounded-[32px] border border-slate-200 bg-white p-6">
-          <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-            {pick("Platform Architecture", "平台架构")}
-          </p>
-          <h3 className="mt-2 text-2xl font-semibold text-slate-950">
-            {pick("Add a load tool as a new execution plane, not as a disconnected sidecar", "把压测能力做成新的执行平面，而不是一个孤立外挂")}
-          </h3>
-          <div className="mt-5 space-y-4">
-            {architectureLayers.map((layer) => (
-              <article key={layer.title} className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h4 className="text-lg font-semibold text-slate-900">{layer.title}</h4>
-                </div>
-                <p className="mt-3 text-sm leading-7 text-slate-600">{layer.summary}</p>
-                <div className="mt-4 grid gap-2 md:grid-cols-3">
-                  {layer.items.map((item) => (
-                    <div key={item} className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <aside className="space-y-4">
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5">
-            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-              {pick("Load Tool Recommendation", "压测工具建议")}
-            </p>
-            <h3 className="mt-2 text-lg font-semibold text-slate-900">
-              {pick("Use a pluggable load engine instead of baking everything into Playwright", "压测部分建议做成可插拔引擎，而不是全塞进 Playwright")}
-            </h3>
-            <div className="mt-4 space-y-3 text-sm leading-7 text-slate-600">
-              <p>
-                {pick(
-                  "k6 should be the primary API and service load engine because it is cheap to run, scriptable, and easy to distribute.",
-                  "k6 适合作为 API 与服务压测的主引擎，成本低、脚本化强、分布式扩展也简单。"
-                )}
-              </p>
-              <p>
-                {pick(
-                  "Playwright browser load should stay as a low-concurrency realism probe for critical user journeys, not as the main high-volume injector.",
-                  "Playwright 浏览器压测更适合作为低并发但高真实性的链路探针，不应该承担高体量主压测。"
-                )}
-              </p>
-              <p>
-                {pick(
-                  "The platform should unify results from both, then decide release gates at the policy layer.",
-                  "平台层负责把两种结果汇总，再在策略层做发布门禁。"
-                )}
-              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {Object.entries(laneCounts).map(([lane, count]) => (
+                  <span
+                    key={lane}
+                    className="rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-medium text-slate-200"
+                  >
+                    {lane} · {count}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-[28px] border border-slate-200 bg-white p-5">
-            <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-              {pick("What Needs To Be Built", "需要新增的核心能力")}
-            </p>
-            <div className="mt-4 space-y-2">
+          <section className="console-panel px-5 py-5">
+            <PlatformSectionHeader
+              eyebrow={pick("Deploy outputs", "部署输出")}
+              title={pick("Export-ready deployment bundle", "可导出的部署包")}
+              description={deploymentMode.summary}
+              dense
+            />
+
+            <div className="mt-4 space-y-4">
+              <div className="console-panel-subtle p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    {pick("runtime.env.production", "runtime.env.production")}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void copyText("env", generatedBundle.envTemplate)}
+                      className="console-button-secondary text-sm"
+                    >
+                      {copiedKey === "env"
+                        ? pick("Copied", "已复制")
+                        : pick("Copy env", "复制 env")}
+                    </button>
+                  </div>
+                </div>
+                <pre className="mt-3 overflow-x-auto rounded-[18px] bg-slate-950 px-4 py-4 text-xs leading-6 text-slate-100">
+                  {generatedBundle.envTemplate}
+                </pre>
+              </div>
+
               {[
-                pick("Load profile schema and scenario registry", "压测 profile schema 和场景注册表"),
-                pick("Distributed injector pool and job orchestration", "分布式 injector 池和任务编排"),
-                pick("Metrics store and SLO evaluation engine", "指标存储和 SLO 评估引擎"),
-                pick("Release gate policies across test types", "跨测试类型的发布门禁策略"),
-                pick("Environment-aware service topology and ownership mapping", "带环境语义的服务拓扑与负责人映射")
-              ].map((item) => (
-                <div key={item} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  {item}
+                {
+                  key: "bootstrap",
+                  title: pick("Bootstrap command", "首装命令"),
+                  value: generatedBundle.bootstrapCommand
+                },
+                {
+                  key: "update",
+                  title: pick("Update command", "更新命令"),
+                  value: generatedBundle.updateCommand
+                },
+                {
+                  key: "smoke",
+                  title: pick("Smoke command", "验收命令"),
+                  value: generatedBundle.smokeCommand
+                }
+              ].map((command) => (
+                <div key={command.key} className="console-panel-subtle p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-900">{command.title}</p>
+                    <button
+                      type="button"
+                      onClick={() => void copyText(command.key, command.value)}
+                      className="console-button-secondary text-sm"
+                    >
+                      {copiedKey === command.key
+                        ? pick("Copied", "已复制")
+                        : pick("Copy", "复制")}
+                    </button>
+                  </div>
+                  <pre className="mt-3 overflow-x-auto rounded-[18px] bg-slate-950 px-4 py-4 text-xs leading-6 text-slate-100">
+                    {command.value}
+                  </pre>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         </aside>
       </div>
 
-      <div className="rounded-[32px] border border-slate-200 bg-white p-6">
-        <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">
-          {pick("Delivery Roadmap", "交付路线")}
-        </p>
-        <h3 className="mt-2 text-2xl font-semibold text-slate-950">
-          {pick("Build the platform in four product phases", "分四个产品阶段把平台做完整")}
-        </h3>
-        <div className="mt-5 grid gap-4 xl:grid-cols-4">
-          {roadmap.map((item) => (
-            <article key={item.phase} className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
-              <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">{item.phase}</p>
-              <h4 className="mt-2 text-lg font-semibold text-slate-900">{item.title}</h4>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{item.detail}</p>
-            </article>
-          ))}
+      <section className="console-panel px-5 py-5">
+        <PlatformSectionHeader
+          eyebrow={pick("Packaging view", "打包视图")}
+          title={pick("What this new platform ships with", "这套新平台会带什么")}
+          description={pick(
+            "Use this as your product checklist before you wire real data, routes, or customer-specific branding.",
+            "在真正接客户数据、路由和品牌之前，可以先把它当作你的产品打包检查清单。"
+          )}
+          variant="table"
+        />
+
+        <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_360px]">
+          <div className="grid gap-3 md:grid-cols-2">
+            {surfaceCards.map((card) => (
+              <article key={card.key} className="console-panel-subtle p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h4 className="text-sm font-semibold text-slate-900">{card.title}</h4>
+                  <span className="console-data-pill px-3 py-1 text-[11px] font-medium text-slate-600">
+                    {card.lane}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-600">{card.summary}</p>
+              </article>
+            ))}
+          </div>
+
+          <aside className="space-y-3">
+            <div className="console-panel-subtle p-4">
+              <p className="font-data text-[11px] uppercase tracking-[0.28em] text-slate-400">
+                {pick("Launch posture", "上线姿态")}
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-slate-600">
+                <p>{deploymentMode.title}</p>
+                <p>{builder.domain || "platform.example.com"}</p>
+                <p>{builder.host || "YOUR_SERVER_IP"}</p>
+                <p>{builder.repoUrl || "git@github.com:your-org/QPilot-Studio.git"}</p>
+              </div>
+            </div>
+            <div className="console-panel-subtle p-4">
+              <p className="font-data text-[11px] uppercase tracking-[0.28em] text-slate-400">
+                {pick("Operator checklist", "操作清单")}
+              </p>
+              <div className="mt-3 space-y-2 text-sm text-slate-600">
+                <p>{pick("1. Write the env template locally.", "1. 先在本地写好 env 模板。")}</p>
+                <p>{pick("2. Run bootstrap with the generated command.", "2. 用生成的命令执行 bootstrap。")}</p>
+                <p>{pick("3. Register owner account after smoke passes.", "3. smoke 通过后注册 owner 账号。")}</p>
+                <p>{pick("4. Configure projects, environments, and policies.", "4. 再配置项目、环境和策略。")}</p>
+              </div>
+            </div>
+          </aside>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="console-panel px-5 py-5">
+          <PlatformSectionHeader
+            eyebrow={pick("Manifest", "配置清单")}
+            title={pick("Portable platform manifest", "可移植的平台 manifest")}
+            description={pick(
+              "This is the cleanest export if you want to hand the configuration to another operator or feed it into future automation.",
+              "如果你要把这套配置交给别的运维同学，或者后续喂给自动化流程，这个 manifest 是最干净的输出。"
+            )}
+            actions={
+              <button
+                type="button"
+                onClick={() => void copyText("manifest", generatedBundle.manifestJson)}
+                className="console-button-secondary text-sm"
+              >
+                {copiedKey === "manifest"
+                  ? pick("Copied", "已复制")
+                  : pick("Copy manifest", "复制 manifest")}
+              </button>
+            }
+          />
+          <pre className="mt-4 overflow-x-auto rounded-[22px] bg-slate-950 px-4 py-4 text-xs leading-6 text-slate-100">
+            {generatedBundle.manifestJson}
+          </pre>
+        </div>
+
+        <div className="console-panel px-5 py-5">
+          <PlatformSectionHeader
+            eyebrow={pick("Next steps", "下一步")}
+            title={pick("Move from packaging to deployment", "从打包走到部署")}
+            description={pick(
+              "Once your package looks right, the existing SSH deployment flow in this repo is enough to put it online quickly.",
+              "当这套平台包配置好之后，当前仓库已经自带的 SSH 自动部署链路足够让你很快上公网。"
+            )}
+            variant="timeline"
+          />
+
+          <div className="mt-4 space-y-3">
+            {[
+              pick("Finalize the public domain, server IP, and repo URL.", "先定下公网域名、服务器 IP 和仓库地址。"),
+              pick("Fill the generated env template with real secrets.", "把生成的 env 模板补上真实密钥。"),
+              pick("Run bootstrap, then smoke verification.", "执行 bootstrap，然后跑 smoke 验证。"),
+              pick("Create your owner account and start registering projects.", "创建 owner 账号，然后开始接入项目。"),
+              pick("If you enable backups, wire S3 before production traffic.", "如果打开了备份，请在接正式流量前配好 S3。")
+            ].map((item, index) => (
+              <div key={item} className="console-panel-subtle flex gap-4 p-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-950 font-data text-xs font-semibold text-white">
+                  {index + 1}
+                </div>
+                <p className="pt-1 text-sm leading-6 text-slate-600">{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </PlatformPageShell>
   );
 };

@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { z } from "zod";
+import { requireAuth, requireMinimumRole } from "../../auth/guards.js";
+import { getTenantProjectRow } from "../../auth/tenant-access.js";
 import { env } from "../../config/env.js";
 import { projectsTable } from "../../db/schema.js";
 import { encryptText } from "../../security/credentials.js";
@@ -19,12 +21,23 @@ const createProjectSchema = z.object({
 });
 
 export const registerProjectRoutes = (app: AppFastify): void => {
-  app.get("/api/projects", async () => {
-    const rows = (await app.appContext.db.select().from(projectsTable)) as ProjectRow[];
+  app.get("/api/projects", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
+    const rows = (await app.appContext.db
+      .select()
+      .from(projectsTable)
+      .where(eq(projectsTable.tenantId, auth.tenant.id))) as ProjectRow[];
     return rows.map(mapProjectRow);
   });
 
   app.post("/api/projects", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const payload = createProjectSchema.parse(request.body);
     let name: string | undefined;
     let username: string | undefined;
@@ -64,6 +77,7 @@ export const registerProjectRoutes = (app: AppFastify): void => {
 
     await app.appContext.db.insert(projectsTable).values({
       id,
+      tenantId: auth.tenant.id,
       name,
       baseUrl: payload.baseUrl,
       usernameCipher: encryptedUsername?.ciphertext ?? null,
@@ -90,6 +104,10 @@ export const registerProjectRoutes = (app: AppFastify): void => {
 
   app.patch("/api/projects/:projectId/credentials", async (request, reply) => {
     const params = z.object({ projectId: z.string() }).parse(request.params);
+    const auth = requireMinimumRole(request, reply, "owner");
+    if (!auth) {
+      return;
+    }
     const body = z
       .object({
         username: z.string().optional(),
@@ -117,6 +135,15 @@ export const registerProjectRoutes = (app: AppFastify): void => {
       });
     }
 
+    const projectRow = await getTenantProjectRow(
+      app.appContext.db,
+      auth.tenant.id,
+      params.projectId
+    );
+    if (!projectRow) {
+      return reply.status(404).send({ error: "Project not found" });
+    }
+
     const encryptedUsername = username
       ? encryptText(username, env.CREDENTIAL_MASTER_KEY)
       : undefined;
@@ -135,12 +162,12 @@ export const registerProjectRoutes = (app: AppFastify): void => {
         passwordTag: encryptedPassword?.tag ?? null,
         updatedAt: Date.now()
       })
-      .where(eq(projectsTable.id, params.projectId));
+      .where(eq(projectsTable.id, projectRow.id));
 
     const rows = await app.appContext.db
       .select()
       .from(projectsTable)
-      .where(eq(projectsTable.id, params.projectId))
+      .where(eq(projectsTable.id, projectRow.id))
       .limit(1);
     const row = rows[0] as ProjectRow | undefined;
     if (!row) {

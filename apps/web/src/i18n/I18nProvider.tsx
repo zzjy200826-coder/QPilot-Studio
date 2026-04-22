@@ -7,6 +7,7 @@ import {
   useState
 } from "react";
 import type { Language } from "@qpilot/shared";
+import { isProbablyCorruptedTranslation } from "./corruption";
 
 const STORAGE_KEY = "qpilot.language.v1";
 
@@ -41,22 +42,6 @@ const detectInitialLanguage = (): Language => {
   return normalizeLanguage(window.navigator.language);
 };
 
-const knownCorruptionHints = [
-  "\uFFFD",
-  "閸",
-  "閹",
-  "閺",
-  "鐠",
-  "闂",
-  "閻",
-  "鏉",
-  "瀹稿",
-  "娣"
-];
-
-const looksCorruptedTranslation = (value: string): boolean =>
-  value.includes("\uFFFD") || knownCorruptionHints.some((token) => value.includes(token));
-
 export const I18nProvider = ({ children }: PropsWithChildren) => {
   const [language, setLanguage] = useState<Language>(() => detectInitialLanguage());
 
@@ -84,7 +69,7 @@ export const I18nProvider = ({ children }: PropsWithChildren) => {
       locale,
       setLanguage,
       pick: (english, chinese) =>
-        language === "zh-CN" && !looksCorruptedTranslation(chinese) ? chinese : english,
+        language === "zh-CN" && !isProbablyCorruptedTranslation(chinese) ? chinese : english,
       formatDateTime: (iso, emptyText) => {
         if (!iso) {
           return emptyText ?? "-";
@@ -93,14 +78,14 @@ export const I18nProvider = ({ children }: PropsWithChildren) => {
       },
       formatRelativeTime: (iso, emptyText) => {
         if (!iso) {
-          return emptyText ?? (language === "zh-CN" ? "暂无信号" : "No signal yet");
+          return emptyText ?? (language === "zh-CN" ? "\u6682\u65e0\u4fe1\u53f7" : "No signal yet");
         }
 
         const deltaSeconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000);
         const absoluteSeconds = Math.abs(deltaSeconds);
 
         if (absoluteSeconds < 5) {
-          return language === "zh-CN" ? "刚刚" : "just now";
+          return language === "zh-CN" ? "\u521a\u521a" : "just now";
         }
 
         if (absoluteSeconds < 60) {

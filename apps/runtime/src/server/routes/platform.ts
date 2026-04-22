@@ -2,7 +2,6 @@ import { and, desc, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
   ControlTowerSummarySchema,
-  type InjectorWorker,
   EnvironmentTopologySchema,
   EnvironmentRegistrySchema,
   EnvironmentRiskLevelSchema,
@@ -17,7 +16,7 @@ import {
   LoadProfileSchema,
   LoadProfileVersionSchema,
   LoadRunCompareSchema,
-  PlatformLoadQueueSummarySchema,
+  OpsSummarySchema,
   LoadRunDetailSchema,
   LoadRunSeriesSchema,
   LoadRunSampleWindowSchema,
@@ -31,6 +30,15 @@ import {
 import { z } from "zod";
 import { buildLoadRunCompare, buildLoadRunDetail } from "../../analytics/load-insights.js";
 import { buildBenchmarkSummary } from "../../analytics/run-insights.js";
+import { requireAuth, requireMinimumRole, requireRoleOrScope } from "../../auth/guards.js";
+import {
+  getTenantEnvironmentRow,
+  getTenantGatePolicyRow,
+  getTenantLoadProfileRow,
+  getTenantLoadRunRow,
+  getTenantProjectRow,
+  getTenantReleaseRow
+} from "../../auth/tenant-access.js";
 import { env } from "../../config/env.js";
 import {
   approvalEventsTable,
@@ -53,7 +61,11 @@ import {
   runsTable,
   waiversTable
 } from "../../db/schema.js";
-import { buildControlTowerSummary, buildReleaseGateResult } from "../../platform/gate-center.js";
+import {
+  buildControlTowerSummary,
+  buildReleaseGateResult,
+  scopeReleaseEvidence
+} from "../../platform/gate-center.js";
 import { getPlatformInfrastructureSummary } from "../../platform/infra-health.js";
 import {
   createPlatformLoadRunRecord,
@@ -61,6 +73,11 @@ import {
   recoverTimedOutPlatformLoadRuns,
   stopQueuedPlatformLoadRun
 } from "../../platform/load-control-plane.js";
+import { buildOpsSummary } from "../../platform/ops-alerts.js";
+import {
+  buildPlatformQueueSummary,
+  listInjectorWorkers
+} from "../../platform/queue-health.js";
 import {
   buildCachedLoadRunSeries,
   fetchPrometheusLoadRunSeries
@@ -73,8 +90,7 @@ import {
   rollbackLoadProfileVersion
 } from "../../platform/versioning.js";
 import {
-  enrichLoadRunWorkersWithHeartbeat,
-  summarizeInjectorWorkerHealth
+  enrichLoadRunWorkersWithHeartbeat
 } from "../../platform/worker-heartbeat.js";
 import {
   mapApprovalEventRow,
@@ -183,12 +199,21 @@ const createGatePolicySchema = z.object({
   expiresAt: z.string().datetime().optional()
 });
 
+const bindingIdListSchema = z
+  .array(z.string().trim().min(1).max(120))
+  .default([])
+  .transform((items) => [...new Set(items)]);
+
 const createReleaseSchema = z.object({
   projectId: z.string(),
   environmentId: z.string().optional(),
   gatePolicyId: z.string(),
   name: z.string().trim().min(1).max(80),
   buildLabel: z.string().trim().min(1).max(120),
+  buildId: z.string().trim().min(1).max(120).optional(),
+  commitSha: z.string().trim().min(7).max(64).optional(),
+  sourceRunIds: bindingIdListSchema,
+  sourceLoadRunIds: bindingIdListSchema,
   notes: z.string().trim().max(400).optional()
 });
 
@@ -313,39 +338,67 @@ const buildCondition = (
 
 const toEpoch = (value: string): number => Date.parse(value);
 
-const listInjectorWorkers = async (
-  app: AppFastify
-): Promise<InjectorWorker[]> => {
-  const workerRows = (await app.appContext.db
-    .select()
-    .from(injectorWorkersTable)
-    .orderBy(desc(injectorWorkersTable.updatedAt))) as InjectorWorkerRow[];
+const validateReleaseBindings = async (
+  app: AppFastify,
+  tenantId: string,
+  payload: z.infer<typeof createReleaseSchema>
+): Promise<string | null> => {
+  const policyRow = await getTenantGatePolicyRow(
+    app.appContext.db,
+    tenantId,
+    payload.gatePolicyId
+  );
+  if (!policyRow) {
+    return "Gate policy not found.";
+  }
+  if (policyRow.projectId !== payload.projectId) {
+    return "Gate policy does not belong to the selected project.";
+  }
 
-  return workerRows.map(mapInjectorWorkerRow);
-};
+  if (payload.environmentId) {
+    const environmentRow = await getTenantEnvironmentRow(
+      app.appContext.db,
+      tenantId,
+      payload.environmentId
+    );
+    if (!environmentRow) {
+      return "Environment not found.";
+    }
+    if (environmentRow.projectId && environmentRow.projectId !== payload.projectId) {
+      return "Environment does not belong to the selected project.";
+    }
+  }
 
-const buildPlatformQueueSummary = async (
-  app: AppFastify
-): Promise<z.infer<typeof PlatformLoadQueueSummarySchema>> => {
-  await recoverTimedOutPlatformLoadRuns({
-    db: app.appContext.db,
-    heartbeatTimeoutMs: env.PLATFORM_WORKER_HEARTBEAT_TIMEOUT_MS
-  });
+  if (payload.sourceRunIds.length > 0) {
+    const runRows = (await app.appContext.db
+      .select()
+      .from(runsTable)
+      .where(and(eq(runsTable.projectId, payload.projectId), eq(runsTable.tenantId, tenantId)))) as RunRow[];
+    const projectRunIds = new Set(runRows.map((row) => row.id));
+    const invalidIds = payload.sourceRunIds.filter((id) => !projectRunIds.has(id));
+    if (invalidIds.length > 0) {
+      return `Some source runs do not belong to this project: ${invalidIds.join(", ")}.`;
+    }
+  }
 
-  const queueSummary = await app.appContext.platformLoadQueue.getSummary();
-  const injectorWorkers = await listInjectorWorkers(app);
+  if (payload.sourceLoadRunIds.length > 0) {
+    const loadRunRows = (await app.appContext.db
+      .select()
+      .from(loadRunsTable)
+      .where(and(eq(loadRunsTable.projectId, payload.projectId), eq(loadRunsTable.tenantId, tenantId)))) as LoadRunRow[];
+    const projectLoadRunIds = new Set(loadRunRows.map((row) => row.id));
+    const invalidIds = payload.sourceLoadRunIds.filter((id) => !projectLoadRunIds.has(id));
+    if (invalidIds.length > 0) {
+      return `Some source load runs do not belong to this project: ${invalidIds.join(", ")}.`;
+    }
+  }
 
-  return PlatformLoadQueueSummarySchema.parse({
-    ...queueSummary,
-    workerHealth: summarizeInjectorWorkerHealth({
-      workers: injectorWorkers,
-      timeoutMs: env.PLATFORM_WORKER_HEARTBEAT_TIMEOUT_MS
-    })
-  });
+  return null;
 };
 
 const upsertGateResult = async (
   app: AppFastify,
+  tenantId: string,
   gateResult: z.infer<typeof ReleaseGateDetailSchema>["result"]
 ) => {
   await app.appContext.db
@@ -354,6 +407,7 @@ const upsertGateResult = async (
 
   await app.appContext.db.insert(releaseGateResultsTable).values({
     id: gateResult.id,
+    tenantId,
     releaseId: gateResult.releaseId,
     verdict: gateResult.verdict,
     summary: gateResult.summary,
@@ -366,24 +420,19 @@ const upsertGateResult = async (
 
 const buildReleaseGateDetail = async (
   app: AppFastify,
+  tenantId: string,
   releaseId: string
 ): Promise<z.infer<typeof ReleaseGateDetailSchema>> => {
-  const releaseRows = (await app.appContext.db
-    .select()
-    .from(releaseCandidatesTable)
-    .where(eq(releaseCandidatesTable.id, releaseId))
-    .limit(1)) as ReleaseCandidateRow[];
-  const releaseRow = releaseRows[0];
+  const releaseRow = await getTenantReleaseRow(app.appContext.db, tenantId, releaseId);
   if (!releaseRow) {
     throw new Error("Release not found.");
   }
 
-  const policyRows = (await app.appContext.db
-    .select()
-    .from(gatePoliciesTable)
-    .where(eq(gatePoliciesTable.id, releaseRow.gatePolicyId))
-    .limit(1)) as GatePolicyRow[];
-  const policyRow = policyRows[0];
+  const policyRow = await getTenantGatePolicyRow(
+    app.appContext.db,
+    tenantId,
+    releaseRow.gatePolicyId
+  );
   if (!policyRow) {
     throw new Error("Gate policy not found.");
   }
@@ -391,51 +440,59 @@ const buildReleaseGateDetail = async (
   const runRows = (await app.appContext.db
     .select()
     .from(runsTable)
-    .where(eq(runsTable.projectId, releaseRow.projectId))
+    .where(and(eq(runsTable.projectId, releaseRow.projectId), eq(runsTable.tenantId, tenantId)))
     .orderBy(desc(runsTable.createdAt))) as RunRow[];
   const caseRows = (await app.appContext.db
     .select()
     .from(caseTemplatesTable)
-    .where(eq(caseTemplatesTable.projectId, releaseRow.projectId))) as CaseTemplateRow[];
+    .where(and(eq(caseTemplatesTable.projectId, releaseRow.projectId), eq(caseTemplatesTable.tenantId, tenantId)))) as CaseTemplateRow[];
   const loadProfileRows = (await app.appContext.db
     .select()
     .from(loadProfilesTable)
-    .where(eq(loadProfilesTable.projectId, releaseRow.projectId))) as LoadProfileRow[];
+    .where(and(eq(loadProfilesTable.projectId, releaseRow.projectId), eq(loadProfilesTable.tenantId, tenantId)))) as LoadProfileRow[];
   const loadRunRows = (await app.appContext.db
     .select()
     .from(loadRunsTable)
-    .where(eq(loadRunsTable.projectId, releaseRow.projectId))
+    .where(and(eq(loadRunsTable.projectId, releaseRow.projectId), eq(loadRunsTable.tenantId, tenantId)))
     .orderBy(desc(loadRunsTable.createdAt))) as LoadRunRow[];
   const waiverRows = (await app.appContext.db
     .select()
     .from(waiversTable)
-    .where(eq(waiversTable.releaseId, releaseId))
+    .where(and(eq(waiversTable.releaseId, releaseId), eq(waiversTable.tenantId, tenantId)))
     .orderBy(desc(waiversTable.createdAt))) as WaiverRow[];
   const approvalRows = (await app.appContext.db
     .select()
     .from(approvalEventsTable)
-    .where(eq(approvalEventsTable.releaseId, releaseId))
+    .where(and(eq(approvalEventsTable.releaseId, releaseId), eq(approvalEventsTable.tenantId, tenantId)))
     .orderBy(desc(approvalEventsTable.createdAt))) as ApprovalEventRow[];
 
   const release = mapReleaseCandidateRow(releaseRow);
   const policy = mapGatePolicyRow(policyRow);
+  const mappedRuns = runRows.map(mapRunRow);
+  const mappedLoadRuns = loadRunRows.map(mapLoadRunRow);
+  const mappedCaseTemplates = caseRows.map(mapCaseTemplateRow);
+  const scopedEvidence = scopeReleaseEvidence({
+    release,
+    projectRuns: mappedRuns,
+    loadRuns: mappedLoadRuns
+  });
   const benchmark = buildBenchmarkSummary({
     projectId: release.projectId,
-    caseTemplates: caseRows.map(mapCaseTemplateRow),
-    runs: runRows.map(mapRunRow)
+    caseTemplates: mappedCaseTemplates,
+    runs: scopedEvidence.projectRuns
   });
   const result = buildReleaseGateResult({
     release,
     policy,
-    projectRuns: runRows.map(mapRunRow),
-    caseTemplates: caseRows.map(mapCaseTemplateRow),
+    projectRuns: scopedEvidence.projectRuns,
+    caseTemplates: mappedCaseTemplates,
     benchmark,
     loadProfiles: loadProfileRows.map(mapLoadProfileRow),
-    loadRuns: loadRunRows.map(mapLoadRunRow),
+    loadRuns: scopedEvidence.loadRuns,
     waivers: waiverRows.map(mapWaiverRow)
   });
 
-  await upsertGateResult(app, result);
+  await upsertGateResult(app, tenantId, result);
 
   const nextStatus =
     result.verdict === "hold"
@@ -466,48 +523,52 @@ const buildReleaseGateDetail = async (
 
 const getLoadProfileRowById = async (
   app: AppFastify,
+  tenantId: string,
   profileId: string
 ): Promise<LoadProfileRow | undefined> => {
-  const rows = (await app.appContext.db
-    .select()
-    .from(loadProfilesTable)
-    .where(eq(loadProfilesTable.id, profileId))
-    .limit(1)) as LoadProfileRow[];
-  return rows[0];
+  return getTenantLoadProfileRow(app.appContext.db, tenantId, profileId);
 };
 
 const getLoadRunRowById = async (
   app: AppFastify,
+  tenantId: string,
   runId: string
 ): Promise<LoadRunRow | undefined> => {
-  const rows = (await app.appContext.db
-    .select()
-    .from(loadRunsTable)
-    .where(eq(loadRunsTable.id, runId))
-    .limit(1)) as LoadRunRow[];
-  return rows[0];
+  return getTenantLoadRunRow(app.appContext.db, tenantId, runId);
 };
 
 const listBaselineEvents = async (
   app: AppFastify,
+  tenantId: string,
   profileId: string
 ) => {
   const rows = (await app.appContext.db
     .select()
     .from(loadProfileBaselineEventsTable)
-    .where(eq(loadProfileBaselineEventsTable.profileId, profileId))
+    .where(and(eq(loadProfileBaselineEventsTable.profileId, profileId), eq(loadProfileBaselineEventsTable.tenantId, tenantId)))
     .orderBy(desc(loadProfileBaselineEventsTable.createdAt))) as LoadProfileBaselineEventRow[];
   return rows.map(mapLoadProfileBaselineEventRow);
 };
 
 export const registerPlatformRoutes = (app: AppFastify): void => {
-  app.get("/api/platform/control-tower", async (request) => {
+  app.get("/api/platform/control-tower", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const releaseRows = (await app.appContext.db
       .select()
       .from(releaseCandidatesTable)
       .where(
         buildCondition([
+          eq(releaseCandidatesTable.tenantId, auth.tenant.id),
           query.projectId ? eq(releaseCandidatesTable.projectId, query.projectId) : undefined
         ])
       )
@@ -515,17 +576,19 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     const gateRows = (await app.appContext.db
       .select()
       .from(releaseGateResultsTable)
+      .where(eq(releaseGateResultsTable.tenantId, auth.tenant.id))
       .orderBy(desc(releaseGateResultsTable.evaluatedAt))) as GateResultRow[];
     const loadRunRows = (await app.appContext.db
       .select()
       .from(loadRunsTable)
       .where(
         buildCondition([
+          eq(loadRunsTable.tenantId, auth.tenant.id),
           query.projectId ? eq(loadRunsTable.projectId, query.projectId) : undefined
         ])
       )
       .orderBy(desc(loadRunsTable.createdAt))) as LoadRunRow[];
-    const injectorWorkers = await listInjectorWorkers(app);
+    const injectorWorkers = await listInjectorWorkers(app.appContext.db, auth.tenant.id);
 
     return ControlTowerSummarySchema.parse(
       buildControlTowerSummary({
@@ -541,15 +604,55 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     PlatformInfrastructureSummarySchema.parse(await getPlatformInfrastructureSummary())
   );
 
-  app.get("/api/platform/load/queue", async () => buildPlatformQueueSummary(app));
+  app.get("/api/platform/load/queue", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
+    return buildPlatformQueueSummary({
+      db: app.appContext.db,
+      platformLoadQueue: app.appContext.platformLoadQueue,
+      tenantId: auth.tenant.id
+    });
+  });
 
-  app.get("/api/platform/environments", async (request) => {
+  app.get("/api/platform/ops/summary", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "owner");
+    if (!auth) {
+      return;
+    }
+
+    return OpsSummarySchema.parse(
+      await buildOpsSummary(
+        {
+          db: app.appContext.db,
+          dbClient: app.appContext.dbClient,
+          platformLoadQueue: app.appContext.platformLoadQueue,
+          maintenanceState: () => app.appContext.backupRuntime.getMaintenanceState()
+        },
+        auth.tenant.id
+      )
+    );
+  });
+
+  app.get("/api/platform/environments", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const environmentRows = (await app.appContext.db
       .select()
       .from(environmentTargetsTable)
       .where(
         buildCondition([
+          eq(environmentTargetsTable.tenantId, auth.tenant.id),
           query.projectId ? eq(environmentTargetsTable.projectId, query.projectId) : undefined
         ])
       )
@@ -557,14 +660,17 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     const serviceRows = (await app.appContext.db
       .select()
       .from(environmentServiceNodesTable)
+      .where(eq(environmentServiceNodesTable.tenantId, auth.tenant.id))
       .orderBy(desc(environmentServiceNodesTable.updatedAt))) as EnvironmentServiceNodeRow[];
     const poolRows = (await app.appContext.db
       .select()
       .from(injectorPoolsTable)
+      .where(eq(injectorPoolsTable.tenantId, auth.tenant.id))
       .orderBy(desc(injectorPoolsTable.updatedAt))) as InjectorPoolRow[];
     const workerRows = (await app.appContext.db
       .select()
       .from(injectorWorkersTable)
+      .where(eq(injectorWorkersTable.tenantId, auth.tenant.id))
       .orderBy(desc(injectorWorkersTable.updatedAt))) as InjectorWorkerRow[];
 
     return EnvironmentRegistrySchema.parse({
@@ -576,13 +682,16 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/platform/environments/:id/topology", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = paramsWithIdSchema.parse(request.params);
-    const environmentRows = (await app.appContext.db
-      .select()
-      .from(environmentTargetsTable)
-      .where(eq(environmentTargetsTable.id, params.id))
-      .limit(1)) as EnvironmentTargetRow[];
-    const environmentRow = environmentRows[0];
+    const environmentRow = await getTenantEnvironmentRow(
+      app.appContext.db,
+      auth.tenant.id,
+      params.id
+    );
     if (!environmentRow) {
       return reply.status(404).send({ error: "Environment not found." });
     }
@@ -590,15 +699,17 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     const serviceRows = (await app.appContext.db
       .select()
       .from(environmentServiceNodesTable)
-      .where(eq(environmentServiceNodesTable.environmentId, params.id))
+      .where(and(eq(environmentServiceNodesTable.environmentId, params.id), eq(environmentServiceNodesTable.tenantId, auth.tenant.id)))
       .orderBy(desc(environmentServiceNodesTable.updatedAt))) as EnvironmentServiceNodeRow[];
     const poolRows = (await app.appContext.db
       .select()
       .from(injectorPoolsTable)
+      .where(eq(injectorPoolsTable.tenantId, auth.tenant.id))
       .orderBy(desc(injectorPoolsTable.updatedAt))) as InjectorPoolRow[];
     const workerRows = (await app.appContext.db
       .select()
       .from(injectorWorkersTable)
+      .where(eq(injectorWorkersTable.tenantId, auth.tenant.id))
       .orderBy(desc(injectorWorkersTable.updatedAt))) as InjectorWorkerRow[];
 
     return EnvironmentTopologySchema.parse({
@@ -610,12 +721,23 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/environments", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "owner");
+    if (!auth) {
+      return;
+    }
     const payload = createEnvironmentSchema.parse(request.body);
+    if (payload.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, payload.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const now = Date.now();
     const environmentId = nanoid();
 
     await app.appContext.db.insert(environmentTargetsTable).values({
       id: environmentId,
+      tenantId: auth.tenant.id,
       projectId: payload.projectId ?? null,
       name: payload.name,
       baseUrl: payload.baseUrl,
@@ -629,6 +751,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     for (const serviceNode of payload.serviceNodes) {
       await app.appContext.db.insert(environmentServiceNodesTable).values({
         id: nanoid(),
+        tenantId: auth.tenant.id,
         environmentId,
         name: serviceNode.name,
         protocol: serviceNode.protocol,
@@ -653,14 +776,20 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     return EnvironmentTargetSchema.parse(mapEnvironmentTargetRow(row));
   });
 
-  app.get("/api/platform/injectors", async () => {
+  app.get("/api/platform/injectors", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const poolRows = (await app.appContext.db
       .select()
       .from(injectorPoolsTable)
+      .where(eq(injectorPoolsTable.tenantId, auth.tenant.id))
       .orderBy(desc(injectorPoolsTable.updatedAt))) as InjectorPoolRow[];
     const workerRows = (await app.appContext.db
       .select()
       .from(injectorWorkersTable)
+      .where(eq(injectorWorkersTable.tenantId, auth.tenant.id))
       .orderBy(desc(injectorWorkersTable.updatedAt))) as InjectorWorkerRow[];
 
     return {
@@ -670,12 +799,17 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/injectors", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "owner");
+    if (!auth) {
+      return;
+    }
     const payload = createInjectorPoolSchema.parse(request.body);
     const now = Date.now();
     const poolId = nanoid();
 
     await app.appContext.db.insert(injectorPoolsTable).values({
       id: poolId,
+      tenantId: auth.tenant.id,
       name: payload.name,
       region: payload.region,
       capacity: payload.capacity,
@@ -699,6 +833,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     for (const worker of workers) {
       await app.appContext.db.insert(injectorWorkersTable).values({
         id: nanoid(),
+        tenantId: auth.tenant.id,
         poolId,
         name: worker.name,
         status: "online",
@@ -718,13 +853,24 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     return InjectorPoolSchema.parse(mapInjectorPoolRow(rows[0]!));
   });
 
-  app.get("/api/platform/gate-policies", async (request) => {
+  app.get("/api/platform/gate-policies", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const rows = (await app.appContext.db
       .select()
       .from(gatePoliciesTable)
       .where(
         buildCondition([
+          eq(gatePoliciesTable.tenantId, auth.tenant.id),
           query.projectId ? eq(gatePoliciesTable.projectId, query.projectId) : undefined
         ])
       )
@@ -734,14 +880,13 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/gate-policies", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "owner");
+    if (!auth) {
+      return;
+    }
     const payload = createGatePolicySchema.parse(request.body);
-    const project = await app.appContext.db
-      .select({ id: projectsTable.id })
-      .from(projectsTable)
-      .where(eq(projectsTable.id, payload.projectId))
-      .limit(1);
-
-    if (!project[0]) {
+    const project = await getTenantProjectRow(app.appContext.db, auth.tenant.id, payload.projectId);
+    if (!project) {
       return reply.status(404).send({ error: "Project not found." });
     }
 
@@ -749,6 +894,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     const id = nanoid();
     await app.appContext.db.insert(gatePoliciesTable).values({
       id,
+      tenantId: auth.tenant.id,
       projectId: payload.projectId,
       name: payload.name,
       requiredFunctionalFlowsJson: JSON.stringify(payload.requiredFunctionalFlows),
@@ -779,13 +925,13 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/platform/gate-policies/:id/versions", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = paramsWithIdSchema.parse(request.params);
-    const policyRows = (await app.appContext.db
-      .select()
-      .from(gatePoliciesTable)
-      .where(eq(gatePoliciesTable.id, params.id))
-      .limit(1)) as GatePolicyRow[];
-    if (!policyRows[0]) {
+    const policyRow = await getTenantGatePolicyRow(app.appContext.db, auth.tenant.id, params.id);
+    if (!policyRow) {
       return reply.status(404).send({ error: "Gate policy not found." });
     }
 
@@ -793,13 +939,24 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     return versions.map((version) => GatePolicyVersionSchema.parse(version));
   });
 
-  app.get("/api/platform/load/profiles", async (request) => {
+  app.get("/api/platform/load/profiles", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const rows = (await app.appContext.db
       .select()
       .from(loadProfilesTable)
       .where(
         buildCondition([
+          eq(loadProfilesTable.tenantId, auth.tenant.id),
           query.projectId ? eq(loadProfilesTable.projectId, query.projectId) : undefined
         ])
       )
@@ -809,14 +966,13 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/load/profiles", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const payload = createPlatformLoadProfileSchema.parse(request.body);
-    const project = await app.appContext.db
-      .select({ id: projectsTable.id })
-      .from(projectsTable)
-      .where(eq(projectsTable.id, payload.projectId))
-      .limit(1);
-
-    if (!project[0]) {
+    const project = await getTenantProjectRow(app.appContext.db, auth.tenant.id, payload.projectId);
+    if (!project) {
       return reply.status(404).send({ error: "Project not found." });
     }
 
@@ -824,6 +980,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     const id = nanoid();
     await app.appContext.db.insert(loadProfilesTable).values({
       id,
+      tenantId: auth.tenant.id,
       projectId: payload.projectId,
       name: payload.name,
       scenarioLabel: payload.scenarioLabel,
@@ -869,13 +1026,13 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/platform/load/profiles/:id/versions", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = paramsWithIdSchema.parse(request.params);
-    const profileRows = (await app.appContext.db
-      .select()
-      .from(loadProfilesTable)
-      .where(eq(loadProfilesTable.id, params.id))
-      .limit(1)) as LoadProfileRow[];
-    if (!profileRows[0]) {
+    const profileRow = await getLoadProfileRowById(app, auth.tenant.id, params.id);
+    if (!profileRow) {
       return reply.status(404).send({ error: "Load profile not found." });
     }
 
@@ -884,8 +1041,16 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/load/profiles/:id/rollback", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = paramsWithIdSchema.parse(request.params);
     const payload = rollbackVersionSchema.parse(request.body);
+    const profileRow = await getLoadProfileRowById(app, auth.tenant.id, params.id);
+    if (!profileRow) {
+      return reply.status(404).send({ error: "Load profile not found." });
+    }
     try {
       const profile = await rollbackLoadProfileVersion({
         db: app.appContext.db,
@@ -901,8 +1066,20 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/load/profiles/:id/baseline", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = paramsWithIdSchema.parse(request.params);
     const payload = setBaselineSchema.parse(request.body);
+    const profileRow = await getLoadProfileRowById(app, auth.tenant.id, params.id);
+    const loadRunRow = await getLoadRunRowById(app, auth.tenant.id, payload.runId);
+    if (!profileRow) {
+      return reply.status(404).send({ error: "Load profile not found." });
+    }
+    if (!loadRunRow) {
+      return reply.status(404).send({ error: "Load run not found." });
+    }
     const now = Date.now();
     await app.appContext.db
       .update(loadProfilesTable)
@@ -914,6 +1091,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
 
     await app.appContext.db.insert(loadProfileBaselineEventsTable).values({
       id: nanoid(),
+      tenantId: auth.tenant.id,
       profileId: params.id,
       runId: payload.runId,
       action: "pinned",
@@ -940,8 +1118,20 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/load/profiles/:id/promote-baseline", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = paramsWithIdSchema.parse(request.params);
     const payload = setBaselineSchema.parse(request.body);
+    const profileRow = await getLoadProfileRowById(app, auth.tenant.id, params.id);
+    const loadRunRow = await getLoadRunRowById(app, auth.tenant.id, payload.runId);
+    if (!profileRow) {
+      return reply.status(404).send({ error: "Load profile not found." });
+    }
+    if (!loadRunRow) {
+      return reply.status(404).send({ error: "Load run not found." });
+    }
     const now = Date.now();
 
     await app.appContext.db
@@ -954,6 +1144,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
 
     await app.appContext.db.insert(loadProfileBaselineEventsTable).values({
       id: nanoid(),
+      tenantId: auth.tenant.id,
       profileId: params.id,
       runId: payload.runId,
       action: "promoted",
@@ -961,7 +1152,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
       createdAt: now
     });
 
-    const row = await getLoadProfileRowById(app, params.id);
+    const row = await getLoadProfileRowById(app, auth.tenant.id, params.id);
     if (!row) {
       return reply.status(404).send({ error: "Load profile not found." });
     }
@@ -974,13 +1165,24 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     return profile;
   });
 
-  app.get("/api/platform/load/runs", async (request) => {
+  app.get("/api/platform/load/runs", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const rows = (await app.appContext.db
       .select()
       .from(loadRunsTable)
       .where(
         buildCondition([
+          eq(loadRunsTable.tenantId, auth.tenant.id),
           query.projectId ? eq(loadRunsTable.projectId, query.projectId) : undefined,
           query.profileId ? eq(loadRunsTable.profileId, query.profileId) : undefined,
           query.environmentId ? eq(loadRunsTable.environmentId, query.environmentId) : undefined,
@@ -995,7 +1197,25 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/load/runs", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const payload = createPlatformLoadRunSchema.parse(request.body);
+    const profileRow = await getLoadProfileRowById(app, auth.tenant.id, payload.profileId);
+    if (!profileRow) {
+      return reply.status(404).send({ error: "Load profile not found." });
+    }
+    if (payload.environmentId) {
+      const environmentRow = await getTenantEnvironmentRow(
+        app.appContext.db,
+        auth.tenant.id,
+        payload.environmentId
+      );
+      if (!environmentRow) {
+        return reply.status(404).send({ error: "Environment not found." });
+      }
+    }
     const queueMode =
       app.appContext.platformLoadQueue.isAvailable &&
       app.appContext.platformLoadQueue.mode === "bullmq"
@@ -1023,27 +1243,21 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/platform/load/runs/:runId", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
     await recoverTimedOutPlatformLoadRuns({
       db: app.appContext.db,
       heartbeatTimeoutMs: env.PLATFORM_WORKER_HEARTBEAT_TIMEOUT_MS
     });
-    const runRows = (await app.appContext.db
-      .select()
-      .from(loadRunsTable)
-      .where(eq(loadRunsTable.id, params.runId))
-      .limit(1)) as LoadRunRow[];
-    const runRow = runRows[0];
+    const runRow = await getLoadRunRowById(app, auth.tenant.id, params.runId);
     if (!runRow) {
       return reply.status(404).send({ error: "Load run not found." });
     }
 
-    const profileRows = (await app.appContext.db
-      .select()
-      .from(loadProfilesTable)
-      .where(eq(loadProfilesTable.id, runRow.profileId))
-      .limit(1)) as LoadProfileRow[];
-    const profileRow = profileRows[0];
+    const profileRow = await getLoadProfileRowById(app, auth.tenant.id, runRow.profileId);
     if (!profileRow) {
       return reply.status(404).send({ error: "Load profile not found." });
     }
@@ -1051,22 +1265,22 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     const siblingRows = (await app.appContext.db
       .select()
       .from(loadRunsTable)
-      .where(eq(loadRunsTable.profileId, runRow.profileId))
+      .where(and(eq(loadRunsTable.profileId, runRow.profileId), eq(loadRunsTable.tenantId, auth.tenant.id)))
       .orderBy(desc(loadRunsTable.createdAt))
       .limit(12)) as LoadRunRow[];
     const workerRows = (await app.appContext.db
       .select()
       .from(loadRunWorkersTable)
-      .where(eq(loadRunWorkersTable.runId, params.runId))
+      .where(and(eq(loadRunWorkersTable.runId, params.runId), eq(loadRunWorkersTable.tenantId, auth.tenant.id)))
       .orderBy(desc(loadRunWorkersTable.workerIndex))) as LoadRunWorkerRow[];
     const sampleWindowRows = (await app.appContext.db
       .select()
       .from(loadRunSampleWindowsTable)
-      .where(eq(loadRunSampleWindowsTable.runId, params.runId))
+      .where(and(eq(loadRunSampleWindowsTable.runId, params.runId), eq(loadRunSampleWindowsTable.tenantId, auth.tenant.id)))
       .orderBy(desc(loadRunSampleWindowsTable.ts))) as LoadRunSampleWindowRow[];
 
-    const injectorWorkers = await listInjectorWorkers(app);
-    const baselineHistory = await listBaselineEvents(app, runRow.profileId);
+    const injectorWorkers = await listInjectorWorkers(app.appContext.db, auth.tenant.id);
+    const baselineHistory = await listBaselineEvents(app, auth.tenant.id, runRow.profileId);
 
     return LoadRunDetailSchema.parse(
       buildLoadRunDetail({
@@ -1087,7 +1301,15 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/platform/load/runs/:runId/series", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
+    const runRow = await getLoadRunRowById(app, auth.tenant.id, params.runId);
+    if (!runRow) {
+      return reply.status(404).send({ error: "Load run not found." });
+    }
 
     if (env.PLATFORM_PROMETHEUS_URL) {
       try {
@@ -1112,7 +1334,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     const rows = (await app.appContext.db
       .select()
       .from(loadRunSampleWindowsTable)
-      .where(eq(loadRunSampleWindowsTable.runId, params.runId))
+      .where(and(eq(loadRunSampleWindowsTable.runId, params.runId), eq(loadRunSampleWindowsTable.tenantId, auth.tenant.id)))
       .orderBy(desc(loadRunSampleWindowsTable.ts))) as LoadRunSampleWindowRow[];
     if (rows.length === 0) {
       return reply.status(404).send({ error: "No time-series data found for this run." });
@@ -1129,13 +1351,21 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/platform/load/runs/:runId/compare", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
     const query = loadRunCompareQuerySchema.parse(request.query);
-    const candidateRow = await getLoadRunRowById(app, query.candidateRunId ?? params.runId);
+    const candidateRow = await getLoadRunRowById(
+      app,
+      auth.tenant.id,
+      query.candidateRunId ?? params.runId
+    );
     if (!candidateRow) {
       return reply.status(404).send({ error: "Candidate run not found." });
     }
-    const candidateProfileRow = await getLoadProfileRowById(app, candidateRow.profileId);
+    const candidateProfileRow = await getLoadProfileRowById(app, auth.tenant.id, candidateRow.profileId);
     if (!candidateProfileRow) {
       return reply.status(404).send({ error: "Load profile not found." });
     }
@@ -1146,11 +1376,11 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
       return reply.status(404).send({ error: "No baseline is configured for this run." });
     }
 
-    const baselineRow = await getLoadRunRowById(app, baselineRunId);
+    const baselineRow = await getLoadRunRowById(app, auth.tenant.id, baselineRunId);
     if (!baselineRow) {
       return reply.status(404).send({ error: "Baseline run not found." });
     }
-    const baselineProfileRow = await getLoadProfileRowById(app, baselineRow.profileId);
+    const baselineProfileRow = await getLoadProfileRowById(app, auth.tenant.id, baselineRow.profileId);
     if (!baselineProfileRow) {
       return reply.status(404).send({ error: "Baseline profile not found." });
     }
@@ -1158,20 +1388,20 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     const baselineWorkerRows = (await app.appContext.db
       .select()
       .from(loadRunWorkersTable)
-      .where(eq(loadRunWorkersTable.runId, baselineRunId))) as LoadRunWorkerRow[];
+      .where(and(eq(loadRunWorkersTable.runId, baselineRunId), eq(loadRunWorkersTable.tenantId, auth.tenant.id)))) as LoadRunWorkerRow[];
     const candidateWorkerRows = (await app.appContext.db
       .select()
       .from(loadRunWorkersTable)
-      .where(eq(loadRunWorkersTable.runId, candidateRow.id))) as LoadRunWorkerRow[];
+      .where(and(eq(loadRunWorkersTable.runId, candidateRow.id), eq(loadRunWorkersTable.tenantId, auth.tenant.id)))) as LoadRunWorkerRow[];
     const baselineWindowRows = (await app.appContext.db
       .select()
       .from(loadRunSampleWindowsTable)
-      .where(eq(loadRunSampleWindowsTable.runId, baselineRunId))) as LoadRunSampleWindowRow[];
+      .where(and(eq(loadRunSampleWindowsTable.runId, baselineRunId), eq(loadRunSampleWindowsTable.tenantId, auth.tenant.id)))) as LoadRunSampleWindowRow[];
     const candidateWindowRows = (await app.appContext.db
       .select()
       .from(loadRunSampleWindowsTable)
-      .where(eq(loadRunSampleWindowsTable.runId, candidateRow.id))) as LoadRunSampleWindowRow[];
-    const injectorWorkers = await listInjectorWorkers(app);
+      .where(and(eq(loadRunSampleWindowsTable.runId, candidateRow.id), eq(loadRunSampleWindowsTable.tenantId, auth.tenant.id)))) as LoadRunSampleWindowRow[];
+    const injectorWorkers = await listInjectorWorkers(app.appContext.db, auth.tenant.id);
 
     return LoadRunCompareSchema.parse(
       buildLoadRunCompare({
@@ -1196,14 +1426,13 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/load/runs/:runId/retry", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
     const payload = retryPlatformLoadRunSchema.parse(request.body ?? {});
-    const runRows = (await app.appContext.db
-      .select()
-      .from(loadRunsTable)
-      .where(eq(loadRunsTable.id, params.runId))
-      .limit(1)) as LoadRunRow[];
-    const sourceRun = runRows[0];
+    const sourceRun = await getLoadRunRowById(app, auth.tenant.id, params.runId);
     if (!sourceRun) {
       return reply.status(404).send({ error: "Load run not found." });
     }
@@ -1237,13 +1466,12 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/load/runs/:runId/cancel", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
-    const runRows = (await app.appContext.db
-      .select()
-      .from(loadRunsTable)
-      .where(eq(loadRunsTable.id, params.runId))
-      .limit(1)) as LoadRunRow[];
-    const sourceRun = runRows[0];
+    const sourceRun = await getLoadRunRowById(app, auth.tenant.id, params.runId);
     if (!sourceRun) {
       return reply.status(404).send({ error: "Load run not found." });
     }
@@ -1267,13 +1495,27 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     return LoadRunSchema.parse(stoppedRun);
   });
 
-  app.get("/api/platform/releases", async (request) => {
+  app.get("/api/platform/releases", async (request, reply) => {
+    const auth = requireRoleOrScope(request, reply, {
+      minimumRole: "viewer",
+      scope: "gate:read"
+    });
+    if (!auth) {
+      return;
+    }
     const query = listQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const rows = (await app.appContext.db
       .select()
       .from(releaseCandidatesTable)
       .where(
         buildCondition([
+          eq(releaseCandidatesTable.tenantId, auth.tenant.id),
           query.projectId ? eq(releaseCandidatesTable.projectId, query.projectId) : undefined
         ])
       )
@@ -1282,18 +1524,38 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     return rows.map((row) => ReleaseCandidateSchema.parse(mapReleaseCandidateRow(row)));
   });
 
-  app.post("/api/platform/releases", async (request) => {
+  app.post("/api/platform/releases", async (request, reply) => {
+    const auth = requireRoleOrScope(request, reply, {
+      minimumRole: "owner",
+      scope: "release:create"
+    });
+    if (!auth) {
+      return;
+    }
     const payload = createReleaseSchema.parse(request.body);
+    const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, payload.projectId);
+    if (!projectRow) {
+      return reply.status(404).send({ error: "Project not found." });
+    }
+    const bindingError = await validateReleaseBindings(app, auth.tenant.id, payload);
+    if (bindingError) {
+      return reply.status(400).send({ error: bindingError });
+    }
     const now = Date.now();
     const id = nanoid();
 
     await app.appContext.db.insert(releaseCandidatesTable).values({
       id,
+      tenantId: auth.tenant.id,
       projectId: payload.projectId,
       environmentId: payload.environmentId ?? null,
       gatePolicyId: payload.gatePolicyId,
       name: payload.name,
       buildLabel: payload.buildLabel,
+      buildId: payload.buildId ?? null,
+      commitSha: payload.commitSha ?? null,
+      sourceRunIdsJson: JSON.stringify(payload.sourceRunIds),
+      sourceLoadRunIdsJson: JSON.stringify(payload.sourceLoadRunIds),
       status: "draft",
       notes: payload.notes ?? null,
       createdAt: now,
@@ -1309,9 +1571,16 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/platform/releases/:releaseId/gates", async (request, reply) => {
+    const auth = requireRoleOrScope(request, reply, {
+      minimumRole: "viewer",
+      scope: "gate:read"
+    });
+    if (!auth) {
+      return;
+    }
     try {
       const params = releaseIdParamsSchema.parse(request.params);
-      return await buildReleaseGateDetail(app, params.releaseId);
+      return await buildReleaseGateDetail(app, auth.tenant.id, params.releaseId);
     } catch (error) {
       return reply
         .status(404)
@@ -1320,9 +1589,16 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/platform/releases/:releaseId/audit", async (request, reply) => {
+    const auth = requireRoleOrScope(request, reply, {
+      minimumRole: "viewer",
+      scope: "gate:read"
+    });
+    if (!auth) {
+      return;
+    }
     try {
       const params = releaseIdParamsSchema.parse(request.params);
-      const detail = await buildReleaseGateDetail(app, params.releaseId);
+      const detail = await buildReleaseGateDetail(app, auth.tenant.id, params.releaseId);
       return ReleaseAuditSchema.parse({
         release: detail.release,
         timeline: detail.approvalTimeline
@@ -1335,20 +1611,20 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/platform/releases/:releaseId/approvals", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "owner");
+    if (!auth) {
+      return;
+    }
     const params = releaseIdParamsSchema.parse(request.params);
     const payload = createApprovalSchema.parse(request.body);
-    const releaseRows = (await app.appContext.db
-      .select()
-      .from(releaseCandidatesTable)
-      .where(eq(releaseCandidatesTable.id, params.releaseId))
-      .limit(1)) as ReleaseCandidateRow[];
-    const releaseRow = releaseRows[0];
+    const releaseRow = await getTenantReleaseRow(app.appContext.db, auth.tenant.id, params.releaseId);
     if (!releaseRow) {
       return reply.status(404).send({ error: "Release not found." });
     }
 
     await app.appContext.db.insert(approvalEventsTable).values({
       id: nanoid(),
+      tenantId: auth.tenant.id,
       releaseId: params.releaseId,
       waiverId: null,
       actor: payload.actor,
@@ -1358,20 +1634,28 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
       createdAt: Date.now()
     });
 
-    const detail = await buildReleaseGateDetail(app, params.releaseId);
+    const detail = await buildReleaseGateDetail(app, auth.tenant.id, params.releaseId);
     return ReleaseAuditSchema.parse({
       release: detail.release,
       timeline: detail.approvalTimeline
     });
   });
 
-  app.get("/api/platform/waivers", async (request) => {
+  app.get("/api/platform/waivers", async (request, reply) => {
+    const auth = requireRoleOrScope(request, reply, {
+      minimumRole: "viewer",
+      scope: "gate:read"
+    });
+    if (!auth) {
+      return;
+    }
     const query = listQuerySchema.parse(request.query);
     const rows = (await app.appContext.db
       .select()
       .from(waiversTable)
       .where(
         buildCondition([
+          eq(waiversTable.tenantId, auth.tenant.id),
           query.releaseId ? eq(waiversTable.releaseId, query.releaseId) : undefined
         ])
       )
@@ -1380,13 +1664,22 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
     return rows.map((row) => WaiverSchema.parse(mapWaiverRow(row)));
   });
 
-  app.post("/api/platform/waivers", async (request) => {
+  app.post("/api/platform/waivers", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "owner");
+    if (!auth) {
+      return;
+    }
     const payload = createWaiverSchema.parse(request.body);
+    const releaseRow = await getTenantReleaseRow(app.appContext.db, auth.tenant.id, payload.releaseId);
+    if (!releaseRow) {
+      return reply.status(404).send({ error: "Release not found." });
+    }
     const now = Date.now();
     const waiverId = nanoid();
 
     await app.appContext.db.insert(waiversTable).values({
       id: waiverId,
+      tenantId: auth.tenant.id,
       releaseId: payload.releaseId,
       blockerKey: payload.blockerKey,
       reason: payload.reason,
@@ -1400,6 +1693,7 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
 
     await app.appContext.db.insert(approvalEventsTable).values({
       id: nanoid(),
+      tenantId: auth.tenant.id,
       releaseId: payload.releaseId,
       waiverId,
       actor: payload.approvedBy ?? payload.requestedBy,
@@ -1409,6 +1703,6 @@ export const registerPlatformRoutes = (app: AppFastify): void => {
       createdAt: now
     });
 
-    return buildReleaseGateDetail(app, payload.releaseId);
+    return buildReleaseGateDetail(app, auth.tenant.id, payload.releaseId);
   });
 };

@@ -73,7 +73,7 @@ const buildLocalWindows = (
   }));
 };
 
-const loadProfileById = async (db: any, profileId: string): Promise<LoadProfile> => {
+const loadProfileRowById = async (db: any, profileId: string): Promise<LoadProfileRow> => {
   const profileRows = (await db
     .select()
     .from(loadProfilesTable)
@@ -84,6 +84,11 @@ const loadProfileById = async (db: any, profileId: string): Promise<LoadProfile>
     throw new Error("Load profile not found.");
   }
 
+  return profileRow;
+};
+
+const loadProfileById = async (db: any, profileId: string): Promise<LoadProfile> => {
+  const profileRow = await loadProfileRowById(db, profileId);
   return mapLoadProfileRow(profileRow);
 };
 
@@ -314,11 +319,13 @@ const buildQueuedWorkers = (params: {
 
 const persistQueuedRun = async (
   db: any,
+  tenantId: string,
   run: LoadRun,
   workers: LoadRunWorker[]
 ): Promise<void> => {
   await db.insert(loadRunsTable).values({
     id: run.id,
+    tenantId,
     projectId: run.projectId,
     profileId: run.profileId,
     profileName: run.profileName,
@@ -345,6 +352,7 @@ const persistQueuedRun = async (
   for (const worker of workers) {
     await db.insert(loadRunWorkersTable).values({
       id: worker.id,
+      tenantId,
       runId: worker.runId,
       workerIndex: worker.workerIndex,
       workerLabel: worker.workerLabel,
@@ -369,6 +377,12 @@ const writeRunCompletion = async (params: {
   workers: LoadRunWorker[];
   sampleWindows: LoadRunSampleWindow[];
 }): Promise<void> => {
+  const runRows = (await params.db
+    .select({ tenantId: loadRunsTable.tenantId })
+    .from(loadRunsTable)
+    .where(eq(loadRunsTable.id, params.run.id))
+    .limit(1)) as Array<{ tenantId?: string | null }>;
+  const tenantId = runRows[0]?.tenantId ?? "tenant-default";
   try {
     await params.db
       .update(loadRunsTable)
@@ -434,6 +448,7 @@ const writeRunCompletion = async (params: {
     try {
       await params.db.insert(loadRunSampleWindowsTable).values({
         id: sampleWindow.id,
+        tenantId,
         runId: params.run.id,
         ts: toEpoch(sampleWindow.ts),
         p95Ms: Math.round(sampleWindow.p95Ms),
@@ -489,7 +504,8 @@ export const createPlatformLoadRunRecord = async (params: {
   notes?: string;
   queueMode: "bullmq" | "inline";
 }): Promise<LoadRun> => {
-  const profile = await loadProfileById(params.db, params.profileId);
+  const profileRow = await loadProfileRowById(params.db, params.profileId);
+  const profile = mapLoadProfileRow(profileRow);
   const createdAt = new Date().toISOString();
   const siblingRows = (await params.db
     .select()
@@ -528,7 +544,7 @@ export const createPlatformLoadRunRecord = async (params: {
     queueMode: params.queueMode
   });
 
-  await persistQueuedRun(params.db, run, workers);
+  await persistQueuedRun(params.db, profileRow.tenantId ?? "tenant-default", run, workers);
 
   return run;
 };

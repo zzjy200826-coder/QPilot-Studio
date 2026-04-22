@@ -12,6 +12,12 @@ import {
   LoadThresholdSchema
 } from "@qpilot/shared";
 import { buildLoadRunDetail, buildLoadStudioSummary } from "../../analytics/load-insights.js";
+import { requireAuth, requireMinimumRole } from "../../auth/guards.js";
+import {
+  getTenantLoadProfileRow,
+  getTenantLoadRunRow,
+  getTenantProjectRow
+} from "../../auth/tenant-access.js";
 import { loadProfilesTable, loadRunsTable, projectsTable } from "../../db/schema.js";
 import { executeLoadRun } from "../../load/runner.js";
 import {
@@ -92,12 +98,24 @@ const buildCondition = (
 };
 
 export const registerLoadRoutes = (app: AppFastify): void => {
-  app.get("/api/load/summary", async (request) => {
+  app.get("/api/load/summary", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listProfilesQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const profileCondition = buildCondition([
+      eq(loadProfilesTable.tenantId, auth.tenant.id),
       query.projectId ? eq(loadProfilesTable.projectId, query.projectId) : undefined
     ]);
     const runCondition = buildCondition([
+      eq(loadRunsTable.tenantId, auth.tenant.id),
       query.projectId ? eq(loadRunsTable.projectId, query.projectId) : undefined
     ]);
 
@@ -131,9 +149,20 @@ export const registerLoadRoutes = (app: AppFastify): void => {
     );
   });
 
-  app.get("/api/load/profiles", async (request) => {
+  app.get("/api/load/profiles", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listProfilesQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const condition = buildCondition([
+      eq(loadProfilesTable.tenantId, auth.tenant.id),
       query.projectId ? eq(loadProfilesTable.projectId, query.projectId) : undefined
     ]);
 
@@ -152,14 +181,14 @@ export const registerLoadRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/load/profiles", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const payload = createProfileSchema.parse(request.body);
-    const project = await app.appContext.db
-      .select({ id: projectsTable.id })
-      .from(projectsTable)
-      .where(eq(projectsTable.id, payload.projectId))
-      .limit(1);
+    const project = await getTenantProjectRow(app.appContext.db, auth.tenant.id, payload.projectId);
 
-    if (!project[0]) {
+    if (!project) {
       return reply.status(404).send({ error: "Project not found." });
     }
 
@@ -168,6 +197,7 @@ export const registerLoadRoutes = (app: AppFastify): void => {
 
     await app.appContext.db.insert(loadProfilesTable).values({
       id,
+      tenantId: auth.tenant.id,
       projectId: payload.projectId,
       name: payload.name,
       scenarioLabel: payload.scenarioLabel,
@@ -201,9 +231,20 @@ export const registerLoadRoutes = (app: AppFastify): void => {
     return LoadProfileSchema.parse(mapLoadProfileRow(row));
   });
 
-  app.get("/api/load/runs", async (request) => {
+  app.get("/api/load/runs", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const query = listRunsQuerySchema.parse(request.query);
+    if (query.projectId) {
+      const projectRow = await getTenantProjectRow(app.appContext.db, auth.tenant.id, query.projectId);
+      if (!projectRow) {
+        return reply.status(404).send({ error: "Project not found." });
+      }
+    }
     const condition = buildCondition([
+      eq(loadRunsTable.tenantId, auth.tenant.id),
       query.projectId ? eq(loadRunsTable.projectId, query.projectId) : undefined,
       query.profileId ? eq(loadRunsTable.profileId, query.profileId) : undefined
     ]);
@@ -225,13 +266,12 @@ export const registerLoadRoutes = (app: AppFastify): void => {
   });
 
   app.post("/api/load/runs", async (request, reply) => {
+    const auth = requireMinimumRole(request, reply, "member");
+    if (!auth) {
+      return;
+    }
     const payload = createRunSchema.parse(request.body);
-    const profileRows = await app.appContext.db
-      .select()
-      .from(loadProfilesTable)
-      .where(eq(loadProfilesTable.id, payload.profileId))
-      .limit(1);
-    const profileRow = profileRows[0] as LoadProfileRow | undefined;
+    const profileRow = await getTenantLoadProfileRow(app.appContext.db, auth.tenant.id, payload.profileId);
 
     if (!profileRow) {
       return reply.status(404).send({ error: "Load profile not found." });
@@ -252,6 +292,7 @@ export const registerLoadRoutes = (app: AppFastify): void => {
 
     await app.appContext.db.insert(loadRunsTable).values({
       id: run.id,
+      tenantId: auth.tenant.id,
       projectId: run.projectId,
       profileId: run.profileId,
       profileName: run.profileName,
@@ -277,24 +318,18 @@ export const registerLoadRoutes = (app: AppFastify): void => {
   });
 
   app.get("/api/load/runs/:runId", async (request, reply) => {
+    const auth = requireAuth(request, reply);
+    if (!auth) {
+      return;
+    }
     const params = runIdParamsSchema.parse(request.params);
-    const runRows = await app.appContext.db
-      .select()
-      .from(loadRunsTable)
-      .where(eq(loadRunsTable.id, params.runId))
-      .limit(1);
-    const runRow = runRows[0] as LoadRunRow | undefined;
+    const runRow = await getTenantLoadRunRow(app.appContext.db, auth.tenant.id, params.runId);
 
     if (!runRow) {
       return reply.status(404).send({ error: "Load run not found." });
     }
 
-    const profileRows = await app.appContext.db
-      .select()
-      .from(loadProfilesTable)
-      .where(eq(loadProfilesTable.id, runRow.profileId))
-      .limit(1);
-    const profileRow = profileRows[0] as LoadProfileRow | undefined;
+    const profileRow = await getTenantLoadProfileRow(app.appContext.db, auth.tenant.id, runRow.profileId);
 
     if (!profileRow) {
       return reply.status(404).send({ error: "Load profile not found." });
@@ -303,7 +338,7 @@ export const registerLoadRoutes = (app: AppFastify): void => {
     const siblingRows = (await app.appContext.db
       .select()
       .from(loadRunsTable)
-      .where(eq(loadRunsTable.profileId, runRow.profileId))
+      .where(and(eq(loadRunsTable.profileId, runRow.profileId), eq(loadRunsTable.tenantId, auth.tenant.id)))
       .orderBy(desc(loadRunsTable.createdAt))
       .limit(12)) as LoadRunRow[];
 

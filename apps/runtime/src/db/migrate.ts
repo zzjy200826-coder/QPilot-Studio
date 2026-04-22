@@ -13,6 +13,83 @@ export const migrateDatabase = async (): Promise<void> => {
   const runtimeRoot = resolve(dirname(currentFile), "..", "..");
   const dbPath = resolveDatabasePath(env.DATABASE_URL, runtimeRoot);
   const { client } = await createDatabase(dbPath);
+  const defaultTenantId = "tenant-default";
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS tenants (
+      id TEXT PRIMARY KEY NOT NULL,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY NOT NULL,
+      email TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      display_name TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS memberships (
+      id TEXT PRIMARY KEY NOT NULL,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      user_id TEXT NOT NULL REFERENCES users(id),
+      role TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      membership_id TEXT NOT NULL REFERENCES memberships(id),
+      secret_hash TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL,
+      last_seen_at INTEGER NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT
+    );
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id TEXT PRIMARY KEY NOT NULL,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      user_id TEXT REFERENCES users(id),
+      membership_id TEXT REFERENCES memberships(id),
+      label TEXT NOT NULL,
+      secret_hash TEXT NOT NULL,
+      scopes_json TEXT NOT NULL DEFAULT '[]',
+      last_used_at INTEGER,
+      expires_at INTEGER,
+      created_at INTEGER NOT NULL
+    );
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY NOT NULL,
+      tenant_id TEXT NOT NULL REFERENCES tenants(id),
+      user_id TEXT REFERENCES users(id),
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      detail_json TEXT,
+      ip_address TEXT,
+      created_at INTEGER NOT NULL
+    );
+  `);
 
   await client.execute(`
     CREATE TABLE IF NOT EXISTS projects (
@@ -325,6 +402,10 @@ export const migrateDatabase = async (): Promise<void> => {
       gate_policy_id TEXT NOT NULL REFERENCES gate_policies(id),
       name TEXT NOT NULL,
       build_label TEXT NOT NULL,
+      build_id TEXT,
+      commit_sha TEXT,
+      source_run_ids_json TEXT NOT NULL DEFAULT '[]',
+      source_load_run_ids_json TEXT NOT NULL DEFAULT '[]',
       status TEXT NOT NULL DEFAULT 'draft',
       notes TEXT,
       created_at INTEGER NOT NULL,
@@ -373,6 +454,23 @@ export const migrateDatabase = async (): Promise<void> => {
     );
   `);
 
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS ops_alert_events (
+      id TEXT PRIMARY KEY NOT NULL,
+      tenant_id TEXT REFERENCES tenants(id),
+      rule_key TEXT NOT NULL,
+      severity TEXT NOT NULL,
+      status TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      detail_json TEXT NOT NULL DEFAULT '{}',
+      fingerprint TEXT NOT NULL,
+      first_triggered_at INTEGER NOT NULL,
+      last_triggered_at INTEGER NOT NULL,
+      last_delivered_at INTEGER,
+      last_delivery_error TEXT
+    );
+  `);
+
   const ensureColumn = async (
     tableName: string,
     columnName: string,
@@ -417,6 +515,93 @@ export const migrateDatabase = async (): Promise<void> => {
   await ensureColumn("load_runs", "raw_summary_path", "TEXT");
   await ensureColumn("load_runs", "environment_id", "TEXT");
   await ensureColumn("load_runs", "compare_baseline_run_id", "TEXT");
+  await ensureColumn("release_candidates", "build_id", "TEXT");
+  await ensureColumn("release_candidates", "commit_sha", "TEXT");
+  await ensureColumn("projects", "tenant_id", "TEXT");
+  await ensureColumn("runs", "tenant_id", "TEXT");
+  await ensureColumn("steps", "tenant_id", "TEXT");
+  await ensureColumn("test_cases", "tenant_id", "TEXT");
+  await ensureColumn("reports", "tenant_id", "TEXT");
+  await ensureColumn("case_templates", "tenant_id", "TEXT");
+  await ensureColumn("load_profiles", "tenant_id", "TEXT");
+  await ensureColumn("load_runs", "tenant_id", "TEXT");
+  await ensureColumn("load_profile_baseline_events", "tenant_id", "TEXT");
+  await ensureColumn("load_profile_versions", "tenant_id", "TEXT");
+  await ensureColumn("load_run_workers", "tenant_id", "TEXT");
+  await ensureColumn("load_run_sample_windows", "tenant_id", "TEXT");
+  await ensureColumn("environment_targets", "tenant_id", "TEXT");
+  await ensureColumn("environment_service_nodes", "tenant_id", "TEXT");
+  await ensureColumn("injector_pools", "tenant_id", "TEXT");
+  await ensureColumn("injector_workers", "tenant_id", "TEXT");
+  await ensureColumn("gate_policies", "tenant_id", "TEXT");
+  await ensureColumn("gate_policy_versions", "tenant_id", "TEXT");
+  await ensureColumn("release_candidates", "tenant_id", "TEXT");
+  await ensureColumn("release_gate_results", "tenant_id", "TEXT");
+  await ensureColumn("waivers", "tenant_id", "TEXT");
+  await ensureColumn("approval_events", "tenant_id", "TEXT");
+  await ensureColumn(
+    "release_candidates",
+    "source_run_ids_json",
+    "TEXT NOT NULL DEFAULT '[]'"
+  );
+  await ensureColumn(
+    "release_candidates",
+    "source_load_run_ids_json",
+    "TEXT NOT NULL DEFAULT '[]'"
+  );
+
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_memberships_tenant_user ON memberships(tenant_id, user_id);
+  `);
+  await client.execute(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ops_alert_events_fingerprint ON ops_alert_events(fingerprint);
+  `);
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_ops_alert_events_last_triggered_at
+    ON ops_alert_events(last_triggered_at);
+  `);
+
+  const now = Date.now();
+  await client.execute({
+    sql: `
+      INSERT OR IGNORE INTO tenants (id, name, slug, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?);
+    `,
+    args: [defaultTenantId, "Default Workspace", "default-workspace", now, now]
+  });
+
+  const backfillTenant = async (tableName: string): Promise<void> => {
+    await client.execute({
+      sql: `UPDATE ${tableName} SET tenant_id = ? WHERE tenant_id IS NULL;`,
+      args: [defaultTenantId]
+    });
+  };
+
+  await backfillTenant("projects");
+  await backfillTenant("runs");
+  await backfillTenant("steps");
+  await backfillTenant("test_cases");
+  await backfillTenant("reports");
+  await backfillTenant("case_templates");
+  await backfillTenant("load_profiles");
+  await backfillTenant("load_runs");
+  await backfillTenant("load_profile_baseline_events");
+  await backfillTenant("load_profile_versions");
+  await backfillTenant("load_run_workers");
+  await backfillTenant("load_run_sample_windows");
+  await backfillTenant("environment_targets");
+  await backfillTenant("environment_service_nodes");
+  await backfillTenant("injector_pools");
+  await backfillTenant("injector_workers");
+  await backfillTenant("gate_policies");
+  await backfillTenant("gate_policy_versions");
+  await backfillTenant("release_candidates");
+  await backfillTenant("release_gate_results");
+  await backfillTenant("waivers");
+  await backfillTenant("approval_events");
 
   client.close();
 };
