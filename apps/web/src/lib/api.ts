@@ -5,6 +5,8 @@ import {
   ApiTokenCreateResult,
   AuthMe,
   BackupConfigStatus,
+  DeployConfigStatus,
+  DeployOperation,
   BackupOperation,
   BackupPreflightResult,
   BackupSnapshot,
@@ -83,7 +85,29 @@ export type RunControlCommand =
   | { command: "resume" }
   | { command: "abort" };
 
-const runtimeBase = import.meta.env.VITE_RUNTIME_BASE_URL ?? "http://localhost:8787";
+const defaultRuntimeBase = (() => {
+  const configured = import.meta.env.VITE_RUNTIME_BASE_URL?.trim();
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  if (typeof window === "undefined") {
+    return "http://localhost:8787";
+  }
+
+  const { hostname } = window.location;
+  if (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
+  ) {
+    return "http://localhost:8787";
+  }
+
+  return "";
+})();
+
+const runtimeBase = defaultRuntimeBase;
 const runtimeWsBase = runtimeBase.replace(/^http/i, "ws");
 const runtimeRequestTimeoutMs = Number(
   import.meta.env.VITE_RUNTIME_REQUEST_TIMEOUT_MS ?? 8_000
@@ -571,6 +595,23 @@ export const api = {
   async getBackupOperation(operationId: string): Promise<BackupOperation> {
     return toJson<BackupOperation>(
       await runtimeFetch(`/api/platform/ops/backups/operations/${operationId}`)
+    );
+  },
+  async getDeployConfigStatus(): Promise<DeployConfigStatus> {
+    return toJson<DeployConfigStatus>(await runtimeFetch("/api/platform/ops/deploy/config"));
+  },
+  async runDeployNow(payload?: { ref?: string }): Promise<DeployOperation> {
+    return toJson<DeployOperation>(
+      await runtimeFetch("/api/platform/ops/deploy/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload ?? {})
+      })
+    );
+  },
+  async getDeployOperation(operationId: string): Promise<DeployOperation> {
+    return toJson<DeployOperation>(
+      await runtimeFetch(`/api/platform/ops/deploy/operations/${operationId}`)
     );
   },
   async getEnvironmentRegistry(projectId?: string): Promise<EnvironmentRegistry> {

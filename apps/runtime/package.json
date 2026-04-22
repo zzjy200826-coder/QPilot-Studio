@@ -13,6 +13,7 @@
     "backup:create": "node --loader ts-node/esm src/scripts/backup-create.ts",
     "backup:restore": "node --loader ts-node/esm src/scripts/backup-restore.ts",
     "backup:prune": "node --loader ts-node/esm src/scripts/backup-prune.ts",
+    "deploy:run": "node --loader ts-node/esm src/scripts/deploy-run.ts",
     "release:submit": "node --loader ts-node/esm src/scripts/platform-release-submit.ts",
     "smoke:bullmq": "node --loader ts-node/esm src/scripts/platform-bullmq-smoke.ts",
     "db:generate": "drizzle-kit generate --config drizzle.config.ts",

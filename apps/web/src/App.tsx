@@ -50,6 +50,11 @@ const OpsPage = lazy(() =>
 const BackupsPage = lazy(() =>
   import("./pages/BackupsPage").then((module) => ({ default: module.BackupsPage }))
 );
+const DeployCenterPage = lazy(() =>
+  import("./pages/DeployCenterPage").then((module) => ({
+    default: module.DeployCenterPage
+  }))
+);
 const LoadStudioPage = lazy(() =>
   import("./pages/LoadStudioPage").then((module) => ({ default: module.LoadStudioPage }))
 );
@@ -154,6 +159,15 @@ const workspaceNavGroups: Array<{
         to: "/platform/ops",
         label: { en: "Ops Summary", zh: "运维摘要" },
         description: { en: "Readiness, alerts, backup health", zh: "就绪状态、告警与备份健康" },
+        ownerOnly: true
+      },
+      {
+        to: "/platform/ops/deploy",
+        label: { en: "Deploy Center", zh: "Deploy Center" },
+        description: {
+          en: "Trigger updates, follow logs, verify smoke",
+          zh: "触发更新、跟踪日志、查看 smoke 结果"
+        },
         ownerOnly: true
       },
       {
@@ -552,6 +566,7 @@ export default function App() {
             <Route path="/platform" element={<PlatformBlueprintPage />} />
             <Route path="/platform/control" element={<ControlTowerPage />} />
             <Route path="/platform/ops" element={<OpsPage />} />
+            <Route path="/platform/ops/deploy" element={<DeployCenterPage />} />
             <Route path="/platform/ops/backups" element={<BackupsPage />} />
             <Route path="/platform/load" element={<LoadStudioPage />} />
             <Route path="/platform/load/runs/:runId" element={<LoadRunDetailPage />} />

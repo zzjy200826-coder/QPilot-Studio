@@ -198,6 +198,12 @@ export const OpsPage = () => {
       actions={
         <div className="flex flex-wrap gap-2 text-sm text-slate-600">
           <Link
+            to="/platform/ops/deploy"
+            className="console-button-subtle text-sm"
+          >
+            {pick("Open deploy center", "打开 Deploy Center")}
+          </Link>
+          <Link
             to="/platform/ops/backups"
             className="console-button-subtle text-sm"
           >

@@ -1444,6 +1444,92 @@ export const BackupConfigStatusSchema = z.object({
   restoreHistory: z.array(BackupOperationSchema).default([])
 });
 
+export const DeployOperationStatusSchema = z.enum([
+  "queued",
+  "running",
+  "succeeded",
+  "failed"
+]);
+
+export const DeployExecutionModeSchema = z.enum(["local", "remote_ssh"]);
+
+export const DeployOperationStepStatusSchema = z.enum([
+  "pending",
+  "running",
+  "succeeded",
+  "failed",
+  "skipped"
+]);
+
+export const DeployOperationStepSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  status: DeployOperationStepStatusSchema,
+  detail: z.string().optional(),
+  startedAt: z.string().optional(),
+  finishedAt: z.string().optional()
+});
+
+export const DeployOperationDetailSchema = z
+  .object({
+    executionMode: DeployExecutionModeSchema.optional(),
+    workspaceRoot: z.string().optional(),
+    repoRemote: z.string().optional(),
+    repoDirty: z.boolean().optional(),
+    targetHost: z.string().optional(),
+    targetSshUser: z.string().optional(),
+    targetAppBaseUrl: z.string().optional(),
+    targetPublicBaseUrl: z.string().optional(),
+    logPath: z.string().optional(),
+    logTail: z.array(z.string()).default([]),
+    smokeVerification: RestoreVerificationResultSchema.optional(),
+    steps: z.array(DeployOperationStepSchema).default([])
+  })
+  .catchall(z.unknown());
+
+export const DeployOperationSchema = z.object({
+  id: z.string(),
+  status: DeployOperationStatusSchema,
+  targetRef: z.string(),
+  triggeredBy: z.string().optional(),
+  message: z.string().optional(),
+  error: z.string().optional(),
+  branchBefore: z.string().optional(),
+  branchAfter: z.string().optional(),
+  commitBefore: z.string().optional(),
+  commitAfter: z.string().optional(),
+  detail: DeployOperationDetailSchema.default({}),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  startedAt: z.string().optional(),
+  finishedAt: z.string().optional()
+});
+
+export const DeployConfigStatusSchema = z.object({
+  supported: z.boolean(),
+  detail: z.string(),
+  executionMode: DeployExecutionModeSchema,
+  workspaceRoot: z.string(),
+  gitBranch: z.string().optional(),
+  gitCommit: z.string().optional(),
+  gitRemote: z.string().optional(),
+  gitDirty: z.boolean(),
+  sshAvailable: z.boolean().default(false),
+  scpAvailable: z.boolean().default(false),
+  systemdRunAvailable: z.boolean(),
+  systemctlAvailable: z.boolean(),
+  targetHost: z.string().optional(),
+  targetSshUser: z.string().optional(),
+  targetSshPort: z.number().int().positive().optional(),
+  targetDeployRoot: z.string().optional(),
+  runtimeEnvSourcePath: z.string().optional(),
+  activeOperation: DeployOperationSchema.optional(),
+  recentOperations: z.array(DeployOperationSchema).default([]),
+  lastSuccessfulAt: z.string().optional(),
+  appBaseUrl: z.string().optional(),
+  publicBaseUrl: z.string().optional()
+});
+
 export const OpsSummarySchema = z.object({
   readiness: ReadinessStatusSchema,
   dependencies: z.array(OpsDependencyStatusSchema).default([]),
@@ -1722,6 +1808,13 @@ export type BackupHealthFailedOperation = z.infer<typeof BackupHealthFailedOpera
 export type BackupHealthSummary = z.infer<typeof BackupHealthSummarySchema>;
 export type RuntimeMaintenanceStatus = z.infer<typeof RuntimeMaintenanceStatusSchema>;
 export type BackupConfigStatus = z.infer<typeof BackupConfigStatusSchema>;
+export type DeployOperationStatus = z.infer<typeof DeployOperationStatusSchema>;
+export type DeployExecutionMode = z.infer<typeof DeployExecutionModeSchema>;
+export type DeployOperationStepStatus = z.infer<typeof DeployOperationStepStatusSchema>;
+export type DeployOperationStep = z.infer<typeof DeployOperationStepSchema>;
+export type DeployOperationDetail = z.infer<typeof DeployOperationDetailSchema>;
+export type DeployOperation = z.infer<typeof DeployOperationSchema>;
+export type DeployConfigStatus = z.infer<typeof DeployConfigStatusSchema>;
 export type BackupPreflightCheck = z.infer<typeof BackupPreflightCheckSchema>;
 export type BackupPreflightResult = z.infer<typeof BackupPreflightResultSchema>;
 export type PlatformLoadQueueSummary = z.infer<typeof PlatformLoadQueueSummarySchema>;

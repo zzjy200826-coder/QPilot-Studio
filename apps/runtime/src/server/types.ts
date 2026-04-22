@@ -3,6 +3,7 @@ import type { Client as LibsqlClient } from "@libsql/client";
 import type { RequestAuth } from "../auth/service.js";
 import type { RunOrchestrator } from "../orchestrator/run-orchestrator.js";
 import type { BackupRuntime } from "../platform/backups.js";
+import type { DeployRuntime } from "../platform/deploy-center.js";
 import type { PlatformLoadQueue } from "../platform/load-queue.js";
 import type { EvidenceStore } from "./evidence-store.js";
 import type { LiveStreamHub } from "./live-stream-hub.js";
@@ -18,6 +19,7 @@ export interface AppContext {
   runtimeBaseUrl: string;
   platformLoadQueue: PlatformLoadQueue;
   backupRuntime: BackupRuntime;
+  deployRuntime: DeployRuntime;
 }
 
 export interface AppFastify extends FastifyInstance {

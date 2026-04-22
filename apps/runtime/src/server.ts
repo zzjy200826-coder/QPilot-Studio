@@ -14,6 +14,7 @@ import { createDatabase, resolveDatabasePath } from "./db/client.js";
 import { migrateDatabase } from "./db/migrate.js";
 import { RunOrchestrator } from "./orchestrator/run-orchestrator.js";
 import { BackupRuntime } from "./platform/backups.js";
+import { DeployRuntime } from "./platform/deploy-center.js";
 import { executePersistedPlatformLoadRun } from "./platform/load-control-plane.js";
 import { PlatformLoadQueue } from "./platform/load-queue.js";
 import { startOpsAlertMonitor } from "./platform/ops-alerts.js";
@@ -23,6 +24,7 @@ import { registerFileRoutes } from "./server/routes/files.js";
 import { LiveStreamHub } from "./server/live-stream-hub.js";
 import { registerHealthRoutes } from "./server/routes/health.js";
 import { registerBackupRoutes } from "./server/routes/backups.js";
+import { registerDeployRoutes } from "./server/routes/deploy-center.js";
 import { registerLiveRoutes } from "./server/routes/live.js";
 import { registerLoadRoutes } from "./server/routes/load.js";
 import { registerPlatformRoutes } from "./server/routes/platform.js";
@@ -93,6 +95,7 @@ export const createServer = async (): Promise<AppFastify> => {
     platformLoadQueue,
     logger: app.log
   });
+  const deployRuntime = new DeployRuntime();
 
   app.appContext = {
     dbClient: client,
@@ -103,7 +106,8 @@ export const createServer = async (): Promise<AppFastify> => {
     liveStreamHub,
     runtimeBaseUrl: `http://${env.HOST}:${env.PORT}`,
     platformLoadQueue,
-    backupRuntime
+    backupRuntime,
+    deployRuntime
   };
   const stopOpsAlertMonitor = startOpsAlertMonitor({
     db,
@@ -181,6 +185,7 @@ export const createServer = async (): Promise<AppFastify> => {
   registerMetricsRoutes(app);
   registerPlatformRoutes(app);
   registerBackupRoutes(app);
+  registerDeployRoutes(app);
   registerProjectRoutes(app);
   registerRuntimeRoutes(app);
   registerRunRoutes(app);
